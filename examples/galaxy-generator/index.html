@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spark • Galaxy Generator</title>
+  <style>
+    body {
+      margin: 0;
+      background: radial-gradient(ellipse at center, #0a0a0a 0%, #000000 100%);
+      font-family: 'Arial', sans-serif;
+      overflow: hidden;
+    }
+    
+    #controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 20px;
+      border-radius: 15px;
+      color: white;
+      backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      min-width: 250px;
+    }
+    
+    #controls h3 {
+      margin: 0 0 15px 0;
+      color: #ff6b9d;
+      text-align: center;
+      font-size: 18px;
+    }
+    
+    .control-group {
+      margin-bottom: 15px;
+    }
+    
+    .control-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #ccc;
+      font-size: 12px;
+    }
+    
+    .control-group input[type="range"] {
+      width: 100%;
+      margin-bottom: 5px;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      transition: background 0.3s;
+    }
+    
+    .control-group input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #ff6b9d;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    
+    .control-group input[type="range"]::-webkit-slider-thumb:hover {
+      background: #ff8ab3;
+    }
+    
+    .control-group input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #ff6b9d;
+      cursor: pointer;
+      border: none;
+      transition: background 0.3s;
+    }
+    
+    .control-group input[type="range"]::-moz-range-thumb:hover {
+      background: #ff8ab3;
+    }
+    
+    .control-group input[type="color"] {
+      width: 30px;
+      height: 30px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    
+    .control-group input[type="color"]:hover {
+      transform: scale(1.1);
+    }
+    
+    #regenerateBtn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(255, 107, 157, 0.4);
+    }
+    
+    #regenerateBtn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    #info {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 10px;
+      color: white;
+      backdrop-filter: blur(15px);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    
+    #info h4 {
+      margin: 0 0 10px 0;
+      color: #ff6b9d;
+    }
+    
+    canvas {
+      touch-action: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="controls">
+    <h3>🌌 Galaxy Generator</h3>
+    
+    <div class="control-group">
+      <label>Star Count: <span id="starCountValue">1000</span></label>
+      <input type="range" id="starCount" min="500" max="3000" value="1000" step="250">
+    </div>
+    
+    <div class="control-group">
+      <label>Galaxy Size: <span id="sizeValue">3.0</span></label>
+      <input type="range" id="size" min="1.0" max="6.0" value="3.0" step="0.2">
+    </div>
+    
+    <div class="control-group">
+      <label>Spiral Arms: <span id="armsValue">4</span></label>
+      <input type="range" id="arms" min="2" max="8" value="4" step="1">
+    </div>
+    
+    <div class="control-group">
+      <label>Core Color:</label>
+      <input type="color" id="coreColor" value="#ff6b9d">
+    </div>
+    
+    <div class="control-group">
+      <label>Arm Color:</label>
+      <input type="color" id="armColor" value="#4fc3f7">
+    </div>
+    
+    <div class="control-group">
+      <label>Rotation Speed: <span id="rotationValue">0.5</span></label>
+      <input type="range" id="rotation" min="0.01" max="2" value="0.5" step="0.01">
+    </div>
+    
+    <button id="regenerateBtn" style="
+      width: 100%; 
+      padding: 12px; 
+      background: linear-gradient(135deg, #ff6b9d, #ff8ab3); 
+      border: none; 
+      color: white; 
+      border-radius: 8px; 
+      cursor: pointer; 
+      margin-top: 15px;
+      font-weight: bold;
+      font-size: 14px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(255, 107, 157, 0.3);
+    ">Regenerate Galaxy</button>
+    
+    <button id="testBtn" style="
+      width: 100%; 
+      padding: 8px; 
+      background: #4fc3f7; 
+      border: none; 
+      color: white; 
+      border-radius: 5px; 
+      cursor: pointer; 
+      margin-top: 10px;
+      font-size: 12px;
+    ">🔧 Test Controls</button>
+  </div>
+  
+  <div id="info">
+    <h4>Controls</h4>
+    <div>WASD + Mouse: Navigate</div>
+    <div>Scroll: Zoom in/out</div>
+    <div>Right Click: Pan</div>
+    <div style="margin-top: 10px; color: #ff6b9d;">
+      <strong>Moving Objects:</strong><br>
+      • 4 Orbiting Planets<br>
+      • 1 Rotating Asteroid Belt<br>
+      • 1 Drifting Nebula Cloud<br>
+      • Rotating Galaxy
+    </div>
+  </div>
+
+  <div id="loading" style="
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    z-index: 1000;
+    font-size: 18px;
+  ">🌌 Generating Galaxy...</div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+        "@sparkjsdev/spark": "https://unpkg.com/@sparkjsdev/spark@latest/dist/spark.module.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    import { SplatMesh } from "@sparkjsdev/spark";
+
+    // Simple orbit controls for camera
+    class SimpleControls {
+      constructor(camera, canvas) {
+        this.camera = camera;
+        this.canvas = canvas;
+        this.enableDamping = true;
+        this.dampingFactor = 0.05;
+        this.target = new THREE.Vector3();
+        this.rotation = { x: 0, y: 0 };
+        this.distance = 10;
+        
+        this.setupEventListeners();
+      }
+      
+      setupEventListeners() {
+        let isMouseDown = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        
+        this.canvas.addEventListener('mousedown', (e) => {
+          isMouseDown = true;
+          lastMouseX = e.clientX;
+          lastMouseY = e.clientY;
+        });
+        
+        this.canvas.addEventListener('mousemove', (e) => {
+          if (!isMouseDown) return;
+          
+          const deltaX = e.clientX - lastMouseX;
+          const deltaY = e.clientY - lastMouseY;
+          
+          this.rotation.y += deltaX * 0.01;
+          this.rotation.x += deltaY * 0.01;
+          
+          this.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, this.rotation.x));
+          
+          lastMouseX = e.clientX;
+          lastMouseY = e.clientY;
+        });
+        
+        this.canvas.addEventListener('mouseup', () => {
+          isMouseDown = false;
+        });
+        
+        this.canvas.addEventListener('wheel', (e) => {
+          this.distance += e.deltaY * 0.01;
+          this.distance = Math.max(5, Math.min(50, this.distance));
+        });
+      }
+      
+      update() {
+        const x = this.distance * Math.cos(this.rotation.x) * Math.sin(this.rotation.y);
+        const y = this.distance * Math.sin(this.rotation.x);
+        const z = this.distance * Math.cos(this.rotation.x) * Math.cos(this.rotation.y);
+        
+        this.camera.position.set(x, y, z);
+        this.camera.lookAt(this.target);
+      }
+    }
+
+    // Galaxy parameters
+    const params = {
+      starCount: 1000, // Very few stars for instant loading
+      size: 3.0, // Smaller galaxy for visibility
+      spiralArms: 4,
+      coreColor: new THREE.Color(0xff6b9d),
+      armColor: new THREE.Color(0x4fc3f7),
+      rotationSpeed: 0.5,
+      coreDensity: 0.3,
+      armDensity: 0.7,
+      starSize: 0.05, // Larger stars for better visibility
+      nebulaOpacity: 0.6 // More visible nebulas
+    };
+
+    // Three.js setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 1);
+    document.body.appendChild(renderer.domElement);
+
+    // Camera setup
+    camera.position.set(0, 0, 8); // Closer to see the galaxy better
+    
+    // Controls
+    const controls = new SimpleControls(camera, renderer.domElement);
+
+    // Galaxy mesh
+    let galaxy = null;
+    let nebulas = [];
+    let backgroundStars = null;
+    let planets = []; // New: orbiting planets
+    let asteroidBelts = []; // New: asteroid belts
+    let movingNebulas = []; // New: moving nebula clouds
+    let regenerationTimeout = null;
+
+    // Debounced regeneration function
+    function debouncedRegenerate(callback, delay = 100) {
+      if (regenerationTimeout) {
+        clearTimeout(regenerationTimeout);
+      }
+      regenerationTimeout = setTimeout(callback, delay);
+    }
+
+    // Noise function for natural distribution
+    function noise(x, y) {
+      return (Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1;
+    }
+
+    // Create galaxy splat mesh
+    function createGalaxy() {
+      console.log('Creating galaxy with params:', {
+        starCount: params.starCount,
+        size: params.size,
+        spiralArms: params.spiralArms,
+        coreColor: params.coreColor.getHexString(),
+        armColor: params.armColor.getHexString()
+      });
+      
+      // Update button text to show progress
+      const regenerateBtn = document.getElementById('regenerateBtn');
+      const originalText = regenerateBtn.textContent;
+      regenerateBtn.textContent = '🔄 Generating...';
+      regenerateBtn.disabled = true;
+      
+      // Use requestAnimationFrame to ensure smooth UI updates
+      requestAnimationFrame(() => {
+        if (galaxy) {
+          scene.remove(galaxy);
+          galaxy.geometry.dispose();
+          galaxy.material.dispose();
+        }
+
+        // Create particle system for galaxy
+        const geometry = new THREE.BufferGeometry();
+        const positions = [];
+        const colors = [];
+        const sizes = [];
+        
+        for (let i = 0; i < params.starCount; i++) {
+          // Generate position in spiral galaxy
+          const angle = Math.random() * Math.PI * 2;
+          const radius = Math.random() * params.size;
+          
+          // Spiral arm effect
+          const armAngle = (angle + Math.PI * 2 * Math.floor(Math.random() * params.spiralArms) / params.spiralArms);
+          const spiralOffset = Math.sin(armAngle * 3) * 0.1;
+          
+          // Add some randomness for natural look
+          const noiseValue = noise(radius * 10, angle * 10);
+          const randomOffset = (noiseValue - 0.5) * 0.2;
+          
+          const x = Math.cos(angle) * (radius + spiralOffset + randomOffset);
+          const y = Math.sin(angle) * (radius + spiralOffset + randomOffset) * 0.3;
+          const z = (Math.random() - 0.5) * 0.5;
+          
+          positions.push(x, y, z);
+          
+          // Determine if star is in core or arms
+          const isCore = radius < params.size * params.coreDensity;
+          const isArm = radius > params.size * params.coreDensity && radius < params.size * params.armDensity;
+          
+          // Color based on position
+          let color;
+          if (isCore) {
+            // Core stars - warm colors
+            const coreHue = params.coreColor.getHSL().h;
+            const saturation = 0.8 + Math.random() * 0.2;
+            const lightness = 0.6 + Math.random() * 0.4;
+            color = new THREE.Color().setHSL(coreHue, saturation, lightness);
+          } else if (isArm) {
+            // Arm stars - cool colors
+            const armHue = params.armColor.getHSL().h;
+            const saturation = 0.7 + Math.random() * 0.3;
+            const lightness = 0.5 + Math.random() * 0.5;
+            color = new THREE.Color().setHSL(armHue, saturation, lightness);
+          } else {
+            // Outer stars - mixed colors
+            const hue = Math.random() * 360;
+            const saturation = 0.5 + Math.random() * 0.5;
+            const lightness = 0.4 + Math.random() * 0.6;
+            color = new THREE.Color().setHSL(hue / 360, saturation, lightness);
+          }
+          
+          colors.push(color.r, color.g, color.b);
+          
+          // Size variation
+          const starSize = params.starSize * (1.0 + Math.random() * 3.0);
+          sizes.push(starSize);
+        }
+        
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+        
+        const material = new THREE.PointsMaterial({
+          size: 0.1, // Much larger size to make stars visible
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.8,
+          sizeAttenuation: true,
+          blending: THREE.AdditiveBlending // Makes stars glow
+        });
+        
+        galaxy = new THREE.Points(geometry, material);
+        scene.add(galaxy);
+        console.log('Galaxy created successfully');
+        
+        // Reset button and regeneration state
+        regenerateBtn.textContent = originalText;
+        regenerateBtn.disabled = false;
+      });
+    }
+
+    // Create nebula clouds - SIMPLIFIED
+    function createNebulas() {
+      // Remove existing nebulas
+      nebulas.forEach(nebula => {
+        scene.remove(nebula);
+        if (nebula.geometry) nebula.geometry.dispose();
+        if (nebula.material) nebula.material.dispose();
+      });
+      nebulas = [];
+      
+      // Create just 2 simple nebulas
+      const nebulaCount = 2;
+      
+      for (let n = 0; n < nebulaCount; n++) {
+        // Simple sphere for nebula
+        const geometry = new THREE.SphereGeometry(0.5, 8, 8);
+        const material = new THREE.MeshBasicMaterial({
+          color: new THREE.Color().setHSL(Math.random(), 0.8, 0.6),
+          transparent: true,
+          opacity: 0.3
+        });
+        
+        const nebula = new THREE.Mesh(geometry, material);
+        
+        // Position nebula
+        const angle = (n / nebulaCount) * Math.PI * 2;
+        const radius = params.size * (1.0 + Math.random() * 0.8); // Scale with galaxy size
+        nebula.position.set(
+          Math.cos(angle) * radius,
+          Math.sin(angle) * radius * 0.3,
+          (Math.random() - 0.5) * 0.3
+        );
+        
+        scene.add(nebula);
+        nebulas.push(nebula);
+      }
+    }
+
+    // Create background stars - SIMPLIFIED
+    function createBackgroundStars() {
+      // Remove existing background stars
+      if (backgroundStars) {
+        scene.remove(backgroundStars);
+        if (backgroundStars.geometry) backgroundStars.geometry.dispose();
+        if (backgroundStars.material) backgroundStars.material.dispose();
+      }
+      
+      // Create just a few simple background stars
+      const geometry = new THREE.BufferGeometry();
+      const positions = [];
+      const colors = [];
+      
+      const starCount = 100; // Very few background stars
+      for (let i = 0; i < starCount; i++) {
+        // Simple random positions
+        const x = (Math.random() - 0.5) * 20;
+        const y = (Math.random() - 0.5) * 20;
+        const z = (Math.random() - 0.5) * 20;
+        
+        positions.push(x, y, z);
+        
+        // Simple white stars
+        colors.push(1, 1, 1);
+      }
+      
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      
+      const material = new THREE.PointsMaterial({
+        size: 0.1,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.7
+      });
+      
+      backgroundStars = new THREE.Points(geometry, material);
+      scene.add(backgroundStars);
+    }
+
+    // Create orbiting planets
+    function createPlanets() {
+      // Remove existing planets
+      planets.forEach(planet => {
+        scene.remove(planet);
+        planet.geometry.dispose();
+        planet.material.dispose();
+      });
+      planets = [];
+      
+      const planetCount = 4; // Fewer planets for better performance
+      
+      for (let p = 0; p < planetCount; p++) {
+        // Planet orbit parameters
+        const orbitRadius = params.size * (1.2 + Math.random() * 1.5); // Scale with galaxy size
+        const orbitSpeed = 0.2 + Math.random() * 0.8; // Different speeds
+        const planetSize = 0.2 + Math.random() * 0.3; // Larger planets for visibility
+        
+        // Planet color - varied colors
+        const planetTypes = [
+          new THREE.Color(0xff6b6b), // Red
+          new THREE.Color(0x4ecdc4), // Teal
+          new THREE.Color(0x45b7d1), // Blue
+          new THREE.Color(0x96ceb4), // Green
+          new THREE.Color(0xfeca57), // Yellow
+          new THREE.Color(0xff9ff3), // Pink
+          new THREE.Color(0x54a0ff), // Light Blue
+          new THREE.Color(0x5f27cd)  // Purple
+        ];
+        const color = planetTypes[p % planetTypes.length];
+        
+        // Create planet as a sphere
+        const geometry = new THREE.SphereGeometry(planetSize, 16, 16);
+        const material = new THREE.MeshBasicMaterial({ 
+          color: color,
+          transparent: true,
+          opacity: 0.8
+        });
+        
+        const planet = new THREE.Mesh(geometry, material);
+        
+        // Store orbit data for animation
+        planet.userData = {
+          orbitRadius,
+          orbitSpeed,
+          orbitAngle: Math.random() * Math.PI * 2,
+          planetSize
+        };
+        
+        scene.add(planet);
+        planets.push(planet);
+      }
+    }
+
+    // Create asteroid belts - SIMPLIFIED
+    function createAsteroidBelts() {
+      // Remove existing asteroid belts
+      asteroidBelts.forEach(belt => {
+        scene.remove(belt);
+        if (belt.geometry) belt.geometry.dispose();
+        if (belt.material) belt.material.dispose();
+      });
+      asteroidBelts = [];
+      
+      // Create just 1 simple asteroid belt
+      const beltCount = 1;
+      
+      for (let b = 0; b < beltCount; b++) {
+        // Simple ring geometry for asteroid belt
+        const geometry = new THREE.RingGeometry(
+          params.size * 1.0, // Inner radius scales with galaxy
+          params.size * 1.4, // Outer radius scales with galaxy
+          16
+        );
+        const material = new THREE.MeshBasicMaterial({
+          color: 0x8B4513,
+          transparent: true,
+          opacity: 0.3,
+          side: THREE.DoubleSide
+        });
+        
+        const belt = new THREE.Mesh(geometry, material);
+        belt.rotation.x = Math.PI / 2; // Make it horizontal
+        
+        // Store belt data for animation
+        belt.userData = {
+          beltSpeed: 0.3 + Math.random() * 0.7,
+          beltAngle: Math.random() * Math.PI * 2
+        };
+        
+        scene.add(belt);
+        asteroidBelts.push(belt);
+      }
+    }
+
+    // Create moving nebula clouds - SIMPLIFIED
+    function createMovingNebulas() {
+      // Remove existing moving nebulas
+      movingNebulas.forEach(nebula => {
+        scene.remove(nebula);
+        if (nebula.geometry) nebula.geometry.dispose();
+        if (nebula.material) nebula.material.dispose();
+      });
+      movingNebulas = [];
+      
+      // Create just 1 simple moving nebula
+      const movingNebulaCount = 1;
+      
+      for (let n = 0; n < movingNebulaCount; n++) {
+        // Simple sphere for moving nebula
+        const geometry = new THREE.SphereGeometry(1.0, 8, 8);
+        const material = new THREE.MeshBasicMaterial({
+          color: new THREE.Color(0xff69b4),
+          transparent: true,
+          opacity: 0.2
+        });
+        
+        const nebula = new THREE.Mesh(geometry, material);
+        
+        // Store movement data for animation
+        nebula.userData = {
+          moveSpeed: 0.1,
+          moveDirection: new THREE.Vector3(1, 0, 0),
+          position: new THREE.Vector3(-5, 0, 0)
+        };
+        
+        nebula.position.copy(nebula.userData.position);
+        scene.add(nebula);
+        movingNebulas.push(nebula);
+      }
+    }
+
+    // Initialize galaxy
+    createGalaxy();
+    createNebulas();
+    createBackgroundStars();
+    createPlanets(); // Call createPlanets here
+    createAsteroidBelts(); // Call createAsteroidBelts here
+    createMovingNebulas(); // Call createMovingNebulas here
+
+    // Hide loading indicator after everything is created
+    setTimeout(() => {
+      const loading = document.getElementById('loading');
+      if (loading) {
+        loading.style.display = 'none';
+      }
+      console.log('Galaxy generation complete!');
+      console.log('Scene objects:', scene.children.length);
+    }, 50); // Almost instant loading
+
+    // UI Controls
+    function updateUI() {
+      document.getElementById('starCountValue').textContent = params.starCount.toLocaleString();
+      document.getElementById('sizeValue').textContent = params.size.toFixed(1);
+      document.getElementById('armsValue').textContent = params.spiralArms;
+      document.getElementById('rotationValue').textContent = params.rotationSpeed.toFixed(1);
+    }
+
+    // Visual feedback for control changes
+    function showControlFeedback(elementId, message) {
+      const element = document.getElementById(elementId);
+      if (element) {
+        const originalText = element.textContent;
+        element.style.color = '#4fc3f7';
+        element.textContent = message;
+        setTimeout(() => {
+          element.style.color = '';
+          element.textContent = originalText;
+        }, 500);
+      }
+    }
+
+    // Test function to verify controls are working
+    function testControls() {
+      console.log('Testing controls...');
+      console.log('Current params:', params);
+      console.log('Galaxy object:', galaxy);
+      console.log('Scene children:', scene.children.length);
+      
+      // Test if we can find all controls
+      const controls = {
+        starCount: document.getElementById('starCount'),
+        size: document.getElementById('size'),
+        arms: document.getElementById('arms'),
+        coreColor: document.getElementById('coreColor'),
+        armColor: document.getElementById('armColor'),
+        rotation: document.getElementById('rotation'),
+        regenerateBtn: document.getElementById('regenerateBtn')
+      };
+      
+      console.log('Found controls:', Object.keys(controls).filter(key => controls[key] !== null));
+      
+      // Test rotation speed specifically
+      console.log('Current rotation speed:', params.rotationSpeed);
+      params.rotationSpeed = 0.1;
+      console.log('Changed rotation speed to 0.1');
+      
+      // Test a simple parameter change
+      const originalStarCount = params.starCount;
+      params.starCount = 1000;
+      console.log('Changed star count to 1000, calling createGalaxy...');
+      createGalaxy();
+      console.log('Test complete');
+    }
+
+    // Setup event listeners with error handling
+    function setupEventListeners() {
+      console.log('Setting up event listeners...');
+      
+      // Star Count
+      const starCountSlider = document.getElementById('starCount');
+      if (starCountSlider) {
+        starCountSlider.addEventListener('input', (e) => {
+          console.log('Star count changed to:', e.target.value);
+          params.starCount = parseInt(e.target.value);
+          updateUI();
+          showControlFeedback('starCountValue', 'Updating...');
+          // Force immediate regeneration
+          createGalaxy();
+        });
+        console.log('Star count listener added');
+      } else {
+        console.error('Star count slider not found!');
+      }
+
+      // Size
+      const sizeSlider = document.getElementById('size');
+      if (sizeSlider) {
+        sizeSlider.addEventListener('input', (e) => {
+          console.log('Size changed to:', e.target.value);
+          params.size = parseFloat(e.target.value);
+          updateUI();
+          showControlFeedback('sizeValue', 'Updating...');
+          // Force immediate regeneration of all objects to scale properly
+          createGalaxy();
+          createNebulas();
+          createPlanets();
+          createAsteroidBelts();
+          createMovingNebulas();
+        });
+        console.log('Size listener added');
+      } else {
+        console.error('Size slider not found!');
+      }
+
+      // Arms
+      const armsSlider = document.getElementById('arms');
+      if (armsSlider) {
+        armsSlider.addEventListener('input', (e) => {
+          console.log('Arms changed to:', e.target.value);
+          params.spiralArms = parseInt(e.target.value);
+          updateUI();
+          showControlFeedback('armsValue', 'Updating...');
+          // Force immediate regeneration
+          createGalaxy();
+        });
+        console.log('Arms listener added');
+      } else {
+        console.error('Arms slider not found!');
+      }
+
+      // Core Color
+      const coreColorPicker = document.getElementById('coreColor');
+      if (coreColorPicker) {
+        coreColorPicker.addEventListener('input', (e) => {
+          console.log('Core color changed to:', e.target.value);
+          params.coreColor.setHex(parseInt(e.target.value.substring(1), 16));
+          // Force immediate regeneration
+          createGalaxy();
+        });
+        console.log('Core color listener added');
+      } else {
+        console.error('Core color picker not found!');
+      }
+
+      // Arm Color
+      const armColorPicker = document.getElementById('armColor');
+      if (armColorPicker) {
+        armColorPicker.addEventListener('input', (e) => {
+          console.log('Arm color changed to:', e.target.value);
+          params.armColor.setHex(parseInt(e.target.value.substring(1), 16));
+          // Force immediate regeneration
+          createGalaxy();
+        });
+        console.log('Arm color listener added');
+      } else {
+        console.error('Arm color picker not found!');
+      }
+
+      // Rotation
+      const rotationSlider = document.getElementById('rotation');
+      if (rotationSlider) {
+        rotationSlider.addEventListener('input', (e) => {
+          console.log('Rotation changed to:', e.target.value);
+          params.rotationSpeed = parseFloat(e.target.value);
+          updateUI();
+          showControlFeedback('rotationValue', 'Updated');
+          console.log('New rotation speed:', params.rotationSpeed);
+        });
+        console.log('Rotation listener added');
+      } else {
+        console.error('Rotation slider not found!');
+      }
+
+      // Regenerate Button
+      const regenerateBtn = document.getElementById('regenerateBtn');
+      if (regenerateBtn) {
+        regenerateBtn.addEventListener('click', () => {
+          console.log('Regenerate button clicked');
+          // Force immediate regeneration of all objects
+          createGalaxy();
+          createNebulas();
+          createBackgroundStars();
+          createPlanets(); // Regenerate planets as well
+          createAsteroidBelts(); // Regenerate asteroid belts
+          createMovingNebulas(); // Regenerate moving nebulas
+        });
+        console.log('Regenerate button listener added');
+      } else {
+        console.error('Regenerate button not found!');
+      }
+
+      // Test Button
+      const testBtn = document.getElementById('testBtn');
+      if (testBtn) {
+        testBtn.addEventListener('click', () => {
+          console.log('Test button clicked');
+          testControls();
+        });
+        console.log('Test button listener added');
+      } else {
+        console.error('Test button not found!');
+      }
+    }
+
+    // Animation function
+    function animate(time) {
+      controls.update();
+      
+      const deltaTime = time * 0.001;
+      
+      // Rotate galaxy with proper speed control
+      if (galaxy) {
+        galaxy.rotation.z += params.rotationSpeed * 0.02; // Increased multiplier for more noticeable effect
+      }
+
+      // Animate planets with speed control
+      planets.forEach(planet => {
+        const userData = planet.userData;
+        userData.orbitAngle += userData.orbitSpeed * deltaTime * params.rotationSpeed; // Scale with rotation speed
+        const orbitRadius = userData.orbitRadius;
+        const orbitAngle = userData.orbitAngle;
+        const planetSize = userData.planetSize;
+
+        planet.position.x = Math.cos(orbitAngle) * orbitRadius;
+        planet.position.y = Math.sin(orbitAngle) * orbitRadius;
+        planet.position.z = 0; // Keep planets flat
+        planet.scale.setScalar(planetSize);
+      });
+
+      // Animate moving nebulas with speed control
+      movingNebulas.forEach(nebula => {
+        const userData = nebula.userData;
+        userData.position.add(userData.moveDirection.clone().multiplyScalar(userData.moveSpeed * deltaTime * params.rotationSpeed)); // Scale with rotation speed
+        nebula.position.copy(userData.position);
+      });
+
+      // Animate asteroid belts with speed control
+      asteroidBelts.forEach(belt => {
+        const userData = belt.userData;
+        userData.beltAngle += userData.beltSpeed * deltaTime * params.rotationSpeed; // Scale with rotation speed
+        belt.rotation.z = userData.beltAngle;
+      });
+      
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Initialize UI
+    updateUI();
+    setupEventListeners(); // Call setupEventListeners after UI is initialized
+    
+    // Test controls after a short delay to ensure everything is loaded
+    setTimeout(() => {
+      console.log('Running initial control test...');
+      testControls();
+    }, 1000);
+
+    // Start animation loop
+    animate(0);
+  </script>
+</body>
+
+</html> 

@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spark • Neural Style Transfer</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: 'Arial', sans-serif;
+      overflow: hidden;
+    }
+    
+    #controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 20px;
+      border-radius: 15px;
+      color: white;
+      backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      min-width: 300px;
+    }
+    
+    #controls h3 {
+      margin: 0 0 15px 0;
+      color: #ff6b9d;
+      text-align: center;
+      font-size: 18px;
+    }
+    
+    .control-group {
+      margin-bottom: 15px;
+    }
+    
+    .control-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #ccc;
+      font-size: 12px;
+    }
+    
+    .control-group input[type="range"] {
+      width: 100%;
+      margin-bottom: 5px;
+    }
+    
+    .control-group select {
+      width: 100%;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 5px;
+      color: white;
+      font-size: 12px;
+    }
+    
+    .control-group select option {
+      background: #333;
+      color: white;
+    }
+    
+    .style-preview {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      flex-wrap: wrap;
+    }
+    
+    .style-option {
+      width: 60px;
+      height: 60px;
+      border-radius: 10px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .style-option.active {
+      border-color: #ff6b9d;
+    }
+    
+    .style-option:hover {
+      border-color: rgba(255, 107, 157, 0.5);
+    }
+    
+    .style-option::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--style-gradient);
+    }
+    
+    #info {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 10px;
+      color: white;
+      backdrop-filter: blur(15px);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    
+    #info h4 {
+      margin: 0 0 10px 0;
+      color: #ff6b9d;
+    }
+    
+    #style-info {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 10px;
+      color: white;
+      backdrop-filter: blur(15px);
+      font-size: 12px;
+      max-width: 250px;
+    }
+    
+    #style-info h4 {
+      margin: 0 0 10px 0;
+      color: #ff6b9d;
+    }
+    
+    canvas {
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <h3>🎨 Neural Style Transfer</h3>
+    
+    <div class="control-group">
+      <label>Style Strength: <span id="strengthValue">0.5</span></label>
+      <input type="range" id="strength" min="0" max="1" value="0.5" step="0.01">
+    </div>
+    
+    <div class="control-group">
+      <label>Color Intensity: <span id="intensityValue">1.0</span></label>
+      <input type="range" id="intensity" min="0" max="2" value="1.0" step="0.1">
+    </div>
+    
+    <div class="control-group">
+      <label>Animation Speed: <span id="speedValue">1.0</span></label>
+      <input type="range" id="speed" min="0" max="3" value="1.0" step="0.1">
+    </div>
+    
+    <div class="control-group">
+      <label>Particle Count: <span id="countValue">2000</span></label>
+      <input type="range" id="count" min="500" max="5000" value="2000" step="100">
+    </div>
+    
+    <div class="control-group">
+      <label>Style Preset:</label>
+      <select id="stylePreset">
+        <option value="van-gogh">Van Gogh - Starry Night</option>
+        <option value="monet">Monet - Water Lilies</option>
+        <option value="picasso">Picasso - Cubism</option>
+        <option value="kandinsky">Kandinsky - Abstract</option>
+        <option value="hokusai">Hokusai - Wave</option>
+        <option value="warhol">Warhol - Pop Art</option>
+        <option value="dali">Dali - Surrealism</option>
+        <option value="custom">Custom Style</option>
+      </select>
+    </div>
+    
+    <div class="style-preview">
+      <div class="style-option" data-style="van-gogh" style="--style-gradient: linear-gradient(45deg, #1e3c72, #2a5298, #ffd700, #ff6b35)"></div>
+      <div class="style-option" data-style="monet" style="--style-gradient: linear-gradient(45deg, #667eea, #764ba2, #f093fb, #f5576c)"></div>
+      <div class="style-option" data-style="picasso" style="--style-gradient: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4)"></div>
+      <div class="style-option" data-style="kandinsky" style="--style-gradient: linear-gradient(45deg, #ff9a9e, #fecfef, #fecfef, #fecfef)"></div>
+      <div class="style-option" data-style="hokusai" style="--style-gradient: linear-gradient(45deg, #a8edea, #fed6e3, #ffecd2, #fcb69f)"></div>
+      <div class="style-option" data-style="warhol" style="--style-gradient: linear-gradient(45deg, #ff6b9d, #c44569, #feca57, #ff9ff3)"></div>
+      <div class="style-option" data-style="dali" style="--style-gradient: linear-gradient(45deg, #48c6ef, #6f86d6, #ff9a9e, #fecfef)"></div>
+      <div class="style-option" data-style="custom" style="--style-gradient: linear-gradient(45deg, #667eea, #764ba2, #f093fb, #f5576c)"></div>
+    </div>
+  </div>
+  
+  <div id="style-info">
+    <h4>Current Style</h4>
+    <div id="styleDescription">Van Gogh - Starry Night</div>
+    <div style="margin-top: 10px; font-size: 10px; color: #ccc;">
+      Features swirling brushstrokes, vibrant yellows and blues, and dynamic movement patterns inspired by the famous painting.
+    </div>
+  </div>
+  
+  <div id="info">
+    <h4>Controls</h4>
+    <div>Mouse: Interact with particles</div>
+    <div>Scroll: Zoom in/out</div>
+    <div>Right Click: Pan view</div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/examples/js/vendor/three/build/three.module.js",
+        "@sparkjsdev/spark": "/dist/spark.module.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    import { SplatMesh, SparkControls } from "@sparkjsdev/spark";
+
+    // Style transfer parameters
+    const params = {
+      styleStrength: 0.5,
+      colorIntensity: 1.0,
+      animationSpeed: 1.0,
+      particleCount: 2000,
+      currentStyle: 'van-gogh'
+    };
+
+    // Style definitions
+    const styles = {
+      'van-gogh': {
+        name: 'Van Gogh - Starry Night',
+        description: 'Features swirling brushstrokes, vibrant yellows and blues, and dynamic movement patterns inspired by the famous painting.',
+        colors: [
+          new THREE.Color(0x1e3c72), // Deep blue
+          new THREE.Color(0x2a5298), // Medium blue
+          new THREE.Color(0xffd700), // Gold
+          new THREE.Color(0xff6b35)  // Orange
+        ],
+        pattern: 'swirl',
+        intensity: 1.2
+      },
+      'monet': {
+        name: 'Monet - Water Lilies',
+        description: 'Soft, impressionistic style with pastel colors and gentle, flowing movements reminiscent of water reflections.',
+        colors: [
+          new THREE.Color(0x667eea), // Soft blue
+          new THREE.Color(0x764ba2), // Purple
+          new THREE.Color(0xf093fb), // Pink
+          new THREE.Color(0xf5576c)  // Rose
+        ],
+        pattern: 'flow',
+        intensity: 0.8
+      },
+      'picasso': {
+        name: 'Picasso - Cubism',
+        description: 'Geometric, angular patterns with bold, contrasting colors and sharp transitions between forms.',
+        colors: [
+          new THREE.Color(0xff6b6b), // Red
+          new THREE.Color(0x4ecdc4), // Teal
+          new THREE.Color(0x45b7d1), // Blue
+          new THREE.Color(0x96ceb4)  // Green
+        ],
+        pattern: 'geometric',
+        intensity: 1.5
+      },
+      'kandinsky': {
+        name: 'Kandinsky - Abstract',
+        description: 'Pure abstraction with vibrant, non-representational colors and organic, flowing shapes.',
+        colors: [
+          new THREE.Color(0xff9a9e), // Pink
+          new THREE.Color(0xfecfef), // Light pink
+          new THREE.Color(0xfecfef), // Light pink
+          new THREE.Color(0xfecfef)  // Light pink
+        ],
+        pattern: 'organic',
+        intensity: 1.0
+      },
+      'hokusai': {
+        name: 'Hokusai - Wave',
+        description: 'Japanese woodblock style with dynamic wave patterns, deep blues, and white foam accents.',
+        colors: [
+          new THREE.Color(0xa8edea), // Light blue
+          new THREE.Color(0xfed6e3), // Pink
+          new THREE.Color(0xffecd2), // Cream
+          new THREE.Color(0xfcb69f)  // Peach
+        ],
+        pattern: 'wave',
+        intensity: 1.3
+      },
+      'warhol': {
+        name: 'Warhol - Pop Art',
+        description: 'Bold, high-contrast colors with repetitive patterns and strong, graphic elements.',
+        colors: [
+          new THREE.Color(0xff6b9d), // Hot pink
+          new THREE.Color(0xc44569), // Dark pink
+          new THREE.Color(0xfeca57), // Yellow
+          new THREE.Color(0xff9ff3)  // Purple
+        ],
+        pattern: 'pop',
+        intensity: 1.8
+      },
+      'dali': {
+        name: 'Dali - Surrealism',
+        description: 'Dreamlike, surreal style with melting forms, unexpected color combinations, and fluid transformations.',
+        colors: [
+          new THREE.Color(0x48c6ef), // Sky blue
+          new THREE.Color(0x6f86d6), // Periwinkle
+          new THREE.Color(0xff9a9e), // Pink
+          new THREE.Color(0xfecfef)  // Light pink
+        ],
+        pattern: 'surreal',
+        intensity: 1.1
+      },
+      'custom': {
+        name: 'Custom Style',
+        description: 'A unique blend of artistic elements with dynamic color transitions and organic movement patterns.',
+        colors: [
+          new THREE.Color(0x667eea), // Blue
+          new THREE.Color(0x764ba2), // Purple
+          new THREE.Color(0xf093fb), // Pink
+          new THREE.Color(0xf5576c)  // Rose
+        ],
+        pattern: 'custom',
+        intensity: 1.0
+      }
+    };
+
+    // Three.js setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 0);
+    document.body.appendChild(renderer.domElement);
+
+    // Camera setup
+    camera.position.set(0, 0, 8);
+    
+    // Controls
+    const controls = new SparkControls({ canvas: renderer.domElement });
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
+    // Style transfer splat mesh
+    let styleMesh = null;
+
+    function createStyleMesh() {
+      if (styleMesh) {
+        scene.remove(styleMesh);
+        styleMesh.dispose();
+      }
+
+      const currentStyle = styles[params.currentStyle];
+      
+      styleMesh = new SplatMesh({
+        constructSplats: (splats) => {
+          const center = new THREE.Vector3();
+          const scales = new THREE.Vector3();
+          const quaternion = new THREE.Quaternion();
+          const color = new THREE.Color();
+          
+          for (let i = 0; i < params.particleCount; i++) {
+            // Generate position based on style pattern
+            const t = i / params.particleCount;
+            const angle = t * Math.PI * 2;
+            
+            switch (currentStyle.pattern) {
+              case 'swirl':
+                // Van Gogh swirl pattern
+                const radius = 2 + Math.sin(angle * 8) * 0.5;
+                const swirl = Math.sin(angle * 12 + t * 10) * 0.3;
+                center.set(
+                  Math.cos(angle) * radius + swirl,
+                  Math.sin(angle) * radius * 0.5 + swirl,
+                  Math.sin(angle * 3) * 0.5
+                );
+                break;
+                
+              case 'flow':
+                // Monet flowing pattern
+                const flowRadius = 2.5 + Math.sin(angle * 6) * 0.3;
+                const flow = Math.sin(angle * 4 + t * 8) * 0.2;
+                center.set(
+                  Math.cos(angle) * flowRadius + flow,
+                  Math.sin(angle) * flowRadius * 0.4 + flow,
+                  Math.sin(angle * 2) * 0.3
+                );
+                break;
+                
+              case 'geometric':
+                // Picasso geometric pattern
+                const geoRadius = 2.2;
+                const geoAngle = Math.floor(angle * 8) / 8 * Math.PI * 2;
+                center.set(
+                  Math.cos(geoAngle) * geoRadius,
+                  Math.sin(geoAngle) * geoRadius * 0.6,
+                  (Math.random() - 0.5) * 0.8
+                );
+                break;
+                
+              case 'organic':
+                // Kandinsky organic pattern
+                const orgRadius = 2.8 + Math.sin(angle * 10) * 0.4;
+                const orgOffset = Math.sin(angle * 7 + t * 15) * 0.4;
+                center.set(
+                  Math.cos(angle) * orgRadius + orgOffset,
+                  Math.sin(angle) * orgRadius * 0.5 + orgOffset,
+                  Math.sin(angle * 5) * 0.6
+                );
+                break;
+                
+666666666666              case 'wave':
+            6    // Hokusai wave pattern
+             6   const waveRadius = 2.3;
+                const waveHeight = Math.sin(angle * 6) * 0.8;
+              6  const waveCurve = Math.sin(angle * 12) * 0.3;
+                center.set(
+               66   Math.cos(angle) * waveRadius + waveCurve,
+                 666666666666666666666666666 Math.sin(angle) * waveRadius * 0.3 + waveHeight,
+                  Math.sin(angle * 4) * 0.4
+                );
+                break;
+                
+              case 'pop':
+                // Warhol pop art pattern
+                const popRadius = 2.4;
+                const popGrid = Math.floor(angle * 12) / 12 * Math.PI * 2;
+                center.set(
+                  Math.cos(popGrid) * popRadius,
+                  Math.sin(popGrid) * popRadius * 0.7,
+                  (Math.random() - 0.5) * 1.0
+                );
+                break;
+                
+              case 'surreal':
+                // Dali surreal pattern
+                const surRadius = 2.6 + Math.sin(angle * 9) * 0.6;
+                const surMelt = Math.sin(angle * 15 + t * 20) * 0.5;
+                center.set(
+                  Math.cos(angle) * surRadius + surMelt,
+                  Math.sin(angle) * surRadius * 0.4 + surMelt * 0.5,
+                  Math.sin(angle * 7) * 0.7
+                );
+                break;
+                
+              default:
+                // Custom pattern
+                const customRadius = 2.5 + Math.sin(angle * 7) * 0.4;
+                const customFlow = Math.sin(angle * 5 + t * 12) * 0.3;
+                center.set(
+                  Math.cos(angle) * customRadius + customFlow,
+                  Math.sin(angle) * customRadius * 0.5 + customFlow,
+                  Math.sin(angle * 4) * 0.5
+                );
+            }
+            
+            // Apply style strength and color intensity
+            const styleT = (t + Math.sin(t * 10) * 0.1) % 1;
+            const colorIndex = Math.floor(styleT * currentStyle.colors.length);
+            const nextColorIndex = (colorIndex + 1) % currentStyle.colors.length;
+            const colorT = (styleT * currentStyle.colors.length) % 1;
+            
+            color.copy(currentStyle.colors[colorIndex])
+              .lerp(currentStyle.colors[nextColorIndex], colorT)
+              .multiplyScalar(params.colorIntensity * currentStyle.intensity);
+            
+            // Size variation based on style
+            const baseSize = 0.02;
+            let sizeMultiplier = 1.0;
+            
+            switch (currentStyle.pattern) {
+              case 'swirl':
+                sizeMultiplier = 0.8 + Math.sin(angle * 8) * 0.4;
+                break;
+              case 'geometric':
+                sizeMultiplier = 1.2 + Math.random() * 0.6;
+                break;
+              case 'pop':
+                sizeMultiplier = 1.5 + Math.random() * 0.8;
+                break;
+              default:
+                sizeMultiplier = 0.8 + Math.random() * 0.6;
+            }
+            
+            scales.setScalar(baseSize * sizeMultiplier);
+            
+            // Opacity based on style strength
+            const opacity = 0.3 + params.styleStrength * 0.7;
+            
+            splats.pushSplat(center, scales, quaternion, opacity, color);
+          }
+        }
+      });
+      
+      scene.add(styleMesh);
+    }
+
+    // Animation function
+    function animate(time) {
+      const deltaTime = time * 0.001 * params.animationSpeed;
+      
+      controls.update(camera);
+      
+      // Animate style mesh
+      if (styleMesh) {
+        styleMesh.rotation.y += deltaTime * 0.1;
+        styleMesh.rotation.z += deltaTime * 0.05;
+        
+        // Recreate mesh for dynamic updates
+        createStyleMesh();
+      }
+      
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    // UI Controls
+    function updateUI() {
+      document.getElementById('strengthValue').textContent = params.styleStrength.toFixed(2);
+      document.getElementById('intensityValue').textContent = params.colorIntensity.toFixed(1);
+      document.getElementById('speedValue').textContent = params.animationSpeed.toFixed(1);
+      document.getElementById('countValue').textContent = params.particleCount.toLocaleString();
+      
+      const currentStyle = styles[params.currentStyle];
+      document.getElementById('styleDescription').textContent = currentStyle.name;
+      document.getElementById('style-info').querySelector('div:last-child').textContent = currentStyle.description;
+    }
+
+    // Event listeners for UI
+    document.getElementById('strength').addEventListener('input', (e) => {
+      params.styleStrength = parseFloat(e.target.value);
+      updateUI();
+    });
+
+    document.getElementById('intensity').addEventListener('input', (e) => {
+      params.colorIntensity = parseFloat(e.target.value);
+      updateUI();
+    });
+
+    document.getElementById('speed').addEventListener('input', (e) => {
+      params.animationSpeed = parseFloat(e.target.value);
+      updateUI();
+    });
+
+    document.getElementById('count').addEventListener('input', (e) => {
+      params.particleCount = parseInt(e.target.value);
+      updateUI();
+    });
+
+    document.getElementById('stylePreset').addEventListener('change', (e) => {
+      params.currentStyle = e.target.value;
+      updateUI();
+      
+      // Update active style preview
+      document.querySelectorAll('.style-option').forEach(option => {
+        option.classList.remove('active');
+      });
+      document.querySelector(`[data-style="${params.currentStyle}"]`).classList.add('active');
+    });
+
+    // Style preview click handlers
+    document.querySelectorAll('.style-option').forEach(option => {
+      option.addEventListener('click', () => {
+        const style = option.getAttribute('data-style');
+        params.currentStyle = style;
+        document.getElementById('stylePreset').value = style;
+        
+        // Update active state
+        document.querySelectorAll('.style-option').forEach(opt => {
+          opt.classList.remove('active');
+        });
+        option.classList.add('active');
+        
+        updateUI();
+      });
+    });
+
+    // Initialize
+    createStyleMesh();
+    updateUI();
+    
+    // Set initial active style
+    document.querySelector('[data-style="van-gogh"]').classList.add('active');
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Start animation loop
+    animate(0);
+  </script>
+</body>
+</html> 

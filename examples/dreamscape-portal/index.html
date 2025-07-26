@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spark • Interactive Dreamscape Portal</title>
+  <style>
+    body {
+      margin: 0;
+      background: radial-gradient(ellipse at center, #0a0a0a 0%, #000000 100%);
+      font-family: 'Arial', sans-serif;
+      overflow: hidden;
+    }
+    
+    #controls {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 12px;
+      color: white;
+      backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      min-width: 220px;
+      max-width: 240px;
+    }
+    
+    #controls h3 {
+      margin: 0 0 12px 0;
+      color: #ff6b9d;
+      text-align: center;
+      font-size: 16px;
+    }
+    
+    .control-group {
+      margin-bottom: 12px;
+    }
+    
+    .control-group label {
+      display: block;
+      margin-bottom: 4px;
+      color: #ccc;
+      font-size: 11px;
+    }
+    
+    .control-group input[type="range"] {
+      width: 100%;
+      margin-bottom: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      transition: background 0.3s;
+    }
+    
+    .control-group input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #ff6b9d;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    
+    .control-group input[type="range"]::-webkit-slider-thumb:hover {
+      background: #ff8ab3;
+    }
+    
+    .control-group input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #ff6b9d;
+      cursor: pointer;
+      border: none;
+      transition: background 0.3s;
+    }
+    
+    .control-group input[type="range"]::-moz-range-thumb:hover {
+      background: #ff8ab3;
+    }
+    
+    .control-group input[type="color"] {
+      width: 25px;
+      height: 25px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    
+    .control-group input[type="color"]:hover {
+      transform: scale(1.1);
+    }
+    
+    button {
+      width: 100%; 
+      padding: 10px; 
+      background: linear-gradient(135deg, #ff6b9d, #ff8ab3); 
+      border: none; 
+      color: white; 
+      border-radius: 6px; 
+      cursor: pointer; 
+      margin-top: 8px;
+      font-weight: bold;
+      font-size: 12px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(255, 107, 157, 0.3);
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(255, 107, 157, 0.4);
+    }
+    
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    #info {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 10px;
+      color: white;
+      backdrop-filter: blur(15px);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    
+    #info h4 {
+      margin: 0 0 10px 0;
+      color: #ff6b9d;
+    }
+    
+    canvas {
+      touch-action: none;
+    }
+    
+    .scene-indicator {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 10px;
+      color: white;
+      backdrop-filter: blur(15px);
+      font-size: 14px;
+      text-align: center;
+    }
+    
+    .scene-indicator h4 {
+      margin: 0 0 5px 0;
+      color: #4fc3f7;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="controls">
+    <h3>🌌 Dreamscape Portal</h3>
+    
+    <div class="control-group">
+      <label>Portal Size: <span id="portalSizeValue">2.0</span></label>
+      <input type="range" id="portalSize" min="0.5" max="4.0" value="2.0" step="0.1">
+    </div>
+    
+    <div class="control-group">
+      <label>Transition Speed: <span id="transitionSpeedValue">1.0</span></label>
+      <input type="range" id="transitionSpeed" min="0.1" max="3.0" value="1.0" step="0.1">
+    </div>
+    
+    <div class="control-group">
+      <label>Depth of Field: <span id="dofValue">0.5</span></label>
+      <input type="range" id="dof" min="0.0" max="2.0" value="0.5" step="0.1">
+    </div>
+    
+    <div class="control-group">
+      <label>Light Intensity: <span id="lightIntensityValue">1.0</span></label>
+      <input type="range" id="lightIntensity" min="0.0" max="3.0" value="1.0" step="0.1">
+    </div>
+    
+    <div class="control-group">
+      <label>Particle Count: <span id="particleCountValue">5000</span></label>
+      <input type="range" id="particleCount" min="1000" max="10000" value="5000" step="500">
+    </div>
+    
+    <div class="control-group">
+      <label>Animation Speed: <span id="animationSpeedValue">1.0</span></label>
+      <input type="range" id="animationSpeed" min="0.1" max="3.0" value="1.0" step="0.1">
+    </div>
+    
+    <div class="control-group">
+      <label>Portal Opacity: <span id="opacityValue">0.8</span></label>
+      <input type="range" id="opacity" min="0.1" max="1.0" value="0.8" step="0.1">
+    </div>
+    
+    <div class="control-group">
+      <label>Portal Color:</label>
+      <input type="color" id="portalColor" value="#ff6b9d">
+    </div>
+    
+    <div class="control-group">
+      <label>Ambient Color:</label>
+      <input type="color" id="ambientColor" value="#4fc3f7">
+    </div>
+    
+    <div class="control-group">
+      <label>Background Color:</label>
+      <input type="color" id="backgroundColor" value="#000000">
+    </div>
+    
+    <button id="nextSceneBtn">Next Dream Scene</button>
+    <button id="toggleLightingBtn">Toggle Dynamic Lighting</button>
+    <button id="randomizeBtn">🎲 Randomize Scene</button>
+    <button id="resetBtn">🔄 Reset to Default</button>
+    <button id="fullscreenBtn">⛶ Fullscreen Mode</button>
+  </div>
+  
+  <div class="scene-indicator">
+    <h4>Current Scene</h4>
+    <div id="sceneName">Cosmic Nebula</div>
+  </div>
+  
+  <div id="info">
+    <h4>Controls</h4>
+    <div>WASD + Mouse: Navigate</div>
+    <div>Scroll: Zoom in/out</div>
+    <div>Right Click: Pan</div>
+
+  </div>
+
+  <div id="loading" style="
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    z-index: 1000;
+    font-size: 18px;
+  ">🌌 Opening Dream Portal...</div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+        "@sparkjsdev/spark": "https://unpkg.com/@sparkjsdev/spark@latest/dist/spark.module.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    import { 
+      SplatMesh, 
+      SparkRenderer, 
+      SparkControls,
+      SplatEdit,
+      SplatEditSdf,
+      SplatEditSdfType,
+      SplatEditRgbaBlendMode
+    } from "@sparkjsdev/spark";
+
+    // Dream scene configurations
+    const dreamScenes = [
+      {
+        name: "Cosmic Nebula",
+        colors: { primary: 0xff6b9d, secondary: 0x4fc3f7, ambient: 0x9c27b0 },
+        pattern: "nebula",
+        complexity: 0.8
+      },
+      {
+        name: "Stellar Garden",
+        colors: { primary: 0x4caf50, secondary: 0xffeb3b, ambient: 0x8bc34a },
+        pattern: "stars",
+        complexity: 0.6
+      },
+      {
+        name: "Aurora Dreams",
+        colors: { primary: 0x00bcd4, secondary: 0x4caf50, ambient: 0x2196f3 },
+        pattern: "aurora",
+        complexity: 0.7
+      },
+      {
+        name: "Quantum Void",
+        colors: { primary: 0x9c27b0, secondary: 0xff5722, ambient: 0x673ab7 },
+        pattern: "quantum",
+        complexity: 0.9
+      },
+      {
+        name: "Crystal Realm",
+        colors: { primary: 0x00bcd4, secondary: 0xff9800, ambient: 0x607d8b },
+        pattern: "crystal",
+        complexity: 0.5
+      }
+    ];
+
+    // Parameters
+    const params = {
+      portalSize: 2.0,
+      transitionSpeed: 1.0,
+      depthOfField: 0.5,
+      lightIntensity: 1.0,
+      particleCount: 5000,
+      animationSpeed: 1.0,
+      opacity: 0.8,
+      portalColor: new THREE.Color(0xff6b9d),
+      ambientColor: new THREE.Color(0x4fc3f7),
+      backgroundColor: new THREE.Color(0x000000),
+      currentScene: 0,
+      dynamicLighting: true
+    };
+
+    // Three.js setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 1);
+    document.body.appendChild(renderer.domElement);
+
+    // Camera setup
+    camera.position.set(0, 0, 8);
+    
+    // Spark renderer with depth of field
+    const spark = new SparkRenderer({
+      renderer,
+      apertureAngle: 0.02,
+      focalDistance: 5.0,
+      maxStdDev: 1.0
+    });
+    scene.add(spark);
+
+    // Controls
+    const controls = new SparkControls({ canvas: renderer.domElement });
+
+    // Scene objects
+    let portalMesh = null;
+    let backgroundStars = null;
+    let lightingLayer = null;
+    let ambientLayer = null;
+    let transitionProgress = 0;
+    let isTransitioning = false;
+
+    // Create procedural dream scene
+    function createDreamScene(sceneIndex) {
+      const dreamScene = dreamScenes[sceneIndex];
+      console.log('Creating dream scene:', dreamScene.name);
+      
+      // Remove existing portal
+      if (portalMesh) {
+        scene.remove(portalMesh);
+        if (portalMesh.geometry) portalMesh.geometry.dispose();
+        if (portalMesh.material) portalMesh.material.dispose();
+      }
+
+      // Create portal geometry based on pattern
+      let geometry;
+      const particleCount = params.particleCount;
+      
+      switch (dreamScene.pattern) {
+        case "nebula":
+          geometry = createNebulaGeometry(particleCount, dreamScene.complexity);
+          break;
+        case "stars":
+          geometry = createStarFieldGeometry(particleCount, dreamScene.complexity);
+          break;
+        case "aurora":
+          geometry = createAuroraGeometry(particleCount, dreamScene.complexity);
+          break;
+        case "quantum":
+          geometry = createQuantumGeometry(particleCount, dreamScene.complexity);
+          break;
+        case "crystal":
+          geometry = createCrystalGeometry(particleCount, dreamScene.complexity);
+          break;
+        default:
+          geometry = createNebulaGeometry(particleCount, 0.5);
+      }
+
+      // Create material with custom colors
+      const material = new THREE.PointsMaterial({
+        size: 0.1,
+        vertexColors: true,
+        transparent: true,
+        opacity: params.opacity,
+        sizeAttenuation: true,
+        blending: THREE.AdditiveBlending
+      });
+
+      portalMesh = new THREE.Points(geometry, material);
+      portalMesh.scale.setScalar(params.portalSize);
+      scene.add(portalMesh);
+    }
+
+    // Geometry generators for different dream patterns
+    function createNebulaGeometry(count, complexity) {
+      const geometry = new THREE.BufferGeometry();
+      const positions = [];
+      const colors = [];
+      
+      for (let i = 0; i < count; i++) {
+        // Spiral nebula pattern
+        const angle = Math.random() * Math.PI * 4;
+        const radius = Math.random() * 3;
+        const spiral = Math.sin(angle * 2) * 0.5;
+        
+        const x = Math.cos(angle) * (radius + spiral);
+        const y = Math.sin(angle) * (radius + spiral) * 0.3;
+        const z = (Math.random() - 0.5) * 2;
+        
+        positions.push(x, y, z);
+        
+        // Gradient colors
+        const t = radius / 3;
+        const color = new THREE.Color();
+        color.setHSL(0.8 + t * 0.2, 0.8, 0.5 + t * 0.3);
+        colors.push(color.r, color.g, color.b);
+      }
+      
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      return geometry;
+    }
+
+    function createStarFieldGeometry(count, complexity) {
+      const geometry = new THREE.BufferGeometry();
+      const positions = [];
+      const colors = [];
+      
+      for (let i = 0; i < count; i++) {
+        // Random star positions
+        const x = (Math.random() - 0.5) * 6;
+        const y = (Math.random() - 0.5) * 6;
+        const z = (Math.random() - 0.5) * 6;
+        
+        positions.push(x, y, z);
+        
+        // Star colors
+        const hue = Math.random() * 0.3 + 0.1; // Yellow to orange
+        const color = new THREE.Color().setHSL(hue, 0.8, 0.7);
+        colors.push(color.r, color.g, color.b);
+      }
+      
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      return geometry;
+    }
+
+    function createAuroraGeometry(count, complexity) {
+      const geometry = new THREE.BufferGeometry();
+      const positions = [];
+      const colors = [];
+      
+      for (let i = 0; i < count; i++) {
+        // Wavy aurora pattern
+        const t = i / count;
+        const x = Math.sin(t * Math.PI * 4) * 2;
+        const y = Math.sin(t * Math.PI * 8) * 0.5 + (t - 0.5) * 3;
+        const z = Math.cos(t * Math.PI * 2) * 0.5;
+        
+        positions.push(x, y, z);
+        
+        // Aurora colors
+        const hue = 0.5 + Math.sin(t * Math.PI * 2) * 0.1; // Green to cyan
+        const color = new THREE.Color().setHSL(hue, 0.9, 0.6);
+        colors.push(color.r, color.g, color.b);
+      }
+      
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      return geometry;
+    }
+
+    function createQuantumGeometry(count, complexity) {
+      const geometry = new THREE.BufferGeometry();
+      const positions = [];
+      const colors = [];
+      
+      for (let i = 0; i < count; i++) {
+        // Quantum wave pattern
+        const t = i / count;
+        const radius = 2 + Math.sin(t * Math.PI * 10) * 0.5;
+        const angle = t * Math.PI * 8;
+        
+        const x = Math.cos(angle) * radius;
+        const y = Math.sin(angle * 2) * radius * 0.5;
+        const z = Math.sin(t * Math.PI * 4) * 1;
+        
+        positions.push(x, y, z);
+        
+        // Quantum colors
+        const hue = 0.8 + Math.sin(t * Math.PI * 3) * 0.2; // Purple to pink
+        const color = new THREE.Color().setHSL(hue, 0.9, 0.5);
+        colors.push(color.r, color.g, color.b);
+      }
+      
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      return geometry;
+    }
+
+    function createCrystalGeometry(count, complexity) {
+      const geometry = new THREE.BufferGeometry();
+      const positions = [];
+      const colors = [];
+      
+      for (let i = 0; i < count; i++) {
+        // Crystal lattice pattern
+        const x = (Math.random() - 0.5) * 4;
+        const y = (Math.random() - 0.5) * 4;
+        const z = (Math.random() - 0.5) * 4;
+        
+        // Crystal structure
+        const crystalX = Math.round(x * 2) / 2;
+        const crystalY = Math.round(y * 2) / 2;
+        const crystalZ = Math.round(z * 2) / 2;
+        
+        positions.push(crystalX, crystalY, crystalZ);
+        
+        // Crystal colors
+        const hue = 0.6 + Math.sin(crystalX + crystalY + crystalZ) * 0.1; // Blue to cyan
+        const color = new THREE.Color().setHSL(hue, 0.7, 0.6);
+        colors.push(color.r, color.g, color.b);
+      }
+      
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      return geometry;
+    }
+
+    // Create dynamic lighting
+    function createDynamicLighting() {
+      // Remove existing lighting
+      if (lightingLayer) {
+        scene.remove(lightingLayer);
+      }
+      if (ambientLayer) {
+        scene.remove(ambientLayer);
+      }
+
+      // Create lighting layer
+      lightingLayer = new SplatEdit({
+        rgbaBlendMode: SplatEditRgbaBlendMode.ADD_RGBA,
+        sdfSmooth: 0.1,
+        softEdge: 1.4,
+      });
+      scene.add(lightingLayer);
+
+      // Create ambient layer
+      ambientLayer = new SplatEdit({
+        rgbaBlendMode: SplatEditRgbaBlendMode.DARKEN,
+        sdfSmooth: 0.1,
+        softEdge: 0.05,
+      });
+      scene.add(ambientLayer);
+
+      // Add dynamic lights
+      const light1 = new SplatEditSdf({
+        type: SplatEditSdfType.SPHERE,
+        color: params.portalColor,
+        radius: 2.0,
+        opacity: params.lightIntensity,
+      });
+      light1.position.set(2, 1, 0);
+      lightingLayer.add(light1);
+
+      const light2 = new SplatEditSdf({
+        type: SplatEditSdfType.SPHERE,
+        color: params.ambientColor,
+        radius: 3.0,
+        opacity: params.lightIntensity * 0.5,
+      });
+      light2.position.set(-2, -1, 0);
+      lightingLayer.add(light2);
+
+      const ambientLight = new SplatEditSdf({
+        type: SplatEditSdfType.SPHERE,
+        color: params.ambientColor,
+        radius: 8.0,
+        opacity: params.lightIntensity * 0.3,
+      });
+      ambientLight.position.set(0, 0, 0);
+      ambientLayer.add(ambientLight);
+    }
+
+    // Create background stars
+    function createBackgroundStars() {
+      if (backgroundStars) {
+        scene.remove(backgroundStars);
+        if (backgroundStars.geometry) backgroundStars.geometry.dispose();
+        if (backgroundStars.material) backgroundStars.material.dispose();
+      }
+      
+      const geometry = new THREE.BufferGeometry();
+      const positions = [];
+      const colors = [];
+      
+      const starCount = 200;
+      for (let i = 0; i < starCount; i++) {
+        const x = (Math.random() - 0.5) * 20;
+        const y = (Math.random() - 0.5) * 20;
+        const z = (Math.random() - 0.5) * 20;
+        
+        positions.push(x, y, z);
+        colors.push(1, 1, 1);
+      }
+      
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      
+      const material = new THREE.PointsMaterial({
+        size: 0.05,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.7
+      });
+      
+      backgroundStars = new THREE.Points(geometry, material);
+      scene.add(backgroundStars);
+    }
+
+    // Transition between scenes
+    function transitionToScene(newSceneIndex) {
+      if (isTransitioning) return;
+      
+      isTransitioning = true;
+      const oldSceneIndex = params.currentScene;
+      params.currentScene = newSceneIndex;
+      
+      // Update scene name
+      document.getElementById('sceneName').textContent = dreamScenes[newSceneIndex].name;
+      
+      // Create new scene
+      createDreamScene(newSceneIndex);
+      
+      // Animate transition
+      const transitionDuration = 2000 / params.transitionSpeed;
+      const startTime = Date.now();
+      
+      function animateTransition() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / transitionDuration, 1);
+        
+        // Smooth transition animation
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        
+        if (portalMesh) {
+          portalMesh.scale.setScalar(params.portalSize * (0.5 + easeProgress * 0.5));
+          portalMesh.material.opacity = easeProgress * params.opacity;
+        }
+        
+        if (progress < 1) {
+          requestAnimationFrame(animateTransition);
+        } else {
+          isTransitioning = false;
+          if (portalMesh) {
+            portalMesh.scale.setScalar(params.portalSize);
+            portalMesh.material.opacity = params.opacity;
+          }
+        }
+      }
+      
+      animateTransition();
+    }
+
+    // Initialize scene
+    createDreamScene(params.currentScene);
+    createBackgroundStars();
+    createDynamicLighting();
+
+    // Hide loading indicator
+    setTimeout(() => {
+      const loading = document.getElementById('loading');
+      if (loading) {
+        loading.style.display = 'none';
+      }
+    }, 1000);
+
+    // UI Controls
+    function updateUI() {
+      document.getElementById('portalSizeValue').textContent = params.portalSize.toFixed(1);
+      document.getElementById('transitionSpeedValue').textContent = params.transitionSpeed.toFixed(1);
+      document.getElementById('dofValue').textContent = params.depthOfField.toFixed(1);
+      document.getElementById('lightIntensityValue').textContent = params.lightIntensity.toFixed(1);
+      document.getElementById('particleCountValue').textContent = params.particleCount.toLocaleString();
+      document.getElementById('animationSpeedValue').textContent = params.animationSpeed.toFixed(1);
+      document.getElementById('opacityValue').textContent = params.opacity.toFixed(1);
+    }
+
+    // Setup event listeners
+    function setupEventListeners() {
+      // Portal Size
+      document.getElementById('portalSize').addEventListener('input', (e) => {
+        params.portalSize = parseFloat(e.target.value);
+        updateUI();
+        if (portalMesh && !isTransitioning) {
+          portalMesh.scale.setScalar(params.portalSize);
+        }
+      });
+
+      // Transition Speed
+      document.getElementById('transitionSpeed').addEventListener('input', (e) => {
+        params.transitionSpeed = parseFloat(e.target.value);
+        updateUI();
+      });
+
+      // Depth of Field
+      document.getElementById('dof').addEventListener('input', (e) => {
+        params.depthOfField = parseFloat(e.target.value);
+        updateUI();
+        spark.apertureAngle = params.depthOfField * 0.02;
+      });
+
+      // Light Intensity
+      document.getElementById('lightIntensity').addEventListener('input', (e) => {
+        params.lightIntensity = parseFloat(e.target.value);
+        updateUI();
+        if (params.dynamicLighting) {
+          createDynamicLighting();
+        }
+      });
+
+      // Portal Color
+      document.getElementById('portalColor').addEventListener('input', (e) => {
+        params.portalColor.setHex(parseInt(e.target.value.substring(1), 16));
+        if (params.dynamicLighting) {
+          createDynamicLighting();
+        }
+      });
+
+      // Ambient Color
+      document.getElementById('ambientColor').addEventListener('input', (e) => {
+        params.ambientColor.setHex(parseInt(e.target.value.substring(1), 16));
+        if (params.dynamicLighting) {
+          createDynamicLighting();
+        }
+      });
+
+      // Background Color
+      document.getElementById('backgroundColor').addEventListener('input', (e) => {
+        params.backgroundColor.setHex(parseInt(e.target.value.substring(1), 16));
+        renderer.setClearColor(params.backgroundColor, 1);
+      });
+
+      // Particle Count
+      document.getElementById('particleCount').addEventListener('input', (e) => {
+        params.particleCount = parseInt(e.target.value);
+        updateUI();
+        createDreamScene(params.currentScene);
+      });
+
+      // Animation Speed
+      document.getElementById('animationSpeed').addEventListener('input', (e) => {
+        params.animationSpeed = parseFloat(e.target.value);
+        updateUI();
+      });
+
+      // Opacity
+      document.getElementById('opacity').addEventListener('input', (e) => {
+        params.opacity = parseFloat(e.target.value);
+        updateUI();
+        if (portalMesh) {
+          portalMesh.material.opacity = params.opacity;
+        }
+      });
+
+      // Next Scene Button
+      document.getElementById('nextSceneBtn').addEventListener('click', () => {
+        const nextScene = (params.currentScene + 1) % dreamScenes.length;
+        transitionToScene(nextScene);
+      });
+
+      // Toggle Lighting Button
+      document.getElementById('toggleLightingBtn').addEventListener('click', () => {
+        params.dynamicLighting = !params.dynamicLighting;
+        if (params.dynamicLighting) {
+          createDynamicLighting();
+          document.getElementById('toggleLightingBtn').textContent = 'Disable Dynamic Lighting';
+        } else {
+          if (lightingLayer) scene.remove(lightingLayer);
+          if (ambientLayer) scene.remove(ambientLayer);
+          document.getElementById('toggleLightingBtn').textContent = 'Enable Dynamic Lighting';
+        }
+      });
+
+      // Randomize Scene Button
+      document.getElementById('randomizeBtn').addEventListener('click', () => {
+        const randomScene = Math.floor(Math.random() * dreamScenes.length);
+        transitionToScene(randomScene);
+      });
+
+      // Reset to Default Button
+      document.getElementById('resetBtn').addEventListener('click', () => {
+        // Reset all parameters to default
+        params.portalSize = 2.0;
+        params.transitionSpeed = 1.0;
+        params.depthOfField = 0.5;
+        params.lightIntensity = 1.0;
+        params.particleCount = 5000;
+        params.animationSpeed = 1.0;
+        params.opacity = 0.8;
+        params.portalColor.setHex(0xff6b9d);
+        params.ambientColor.setHex(0x4fc3f7);
+        params.backgroundColor.setHex(0x000000);
+        params.dynamicLighting = true;
+
+        // Update UI controls
+        document.getElementById('portalSize').value = params.portalSize;
+        document.getElementById('transitionSpeed').value = params.transitionSpeed;
+        document.getElementById('dof').value = params.depthOfField;
+        document.getElementById('lightIntensity').value = params.lightIntensity;
+        document.getElementById('particleCount').value = params.particleCount;
+        document.getElementById('animationSpeed').value = params.animationSpeed;
+        document.getElementById('opacity').value = params.opacity;
+        document.getElementById('portalColor').value = '#ff6b9d';
+        document.getElementById('ambientColor').value = '#4fc3f7';
+        document.getElementById('backgroundColor').value = '#000000';
+
+        // Update scene
+        updateUI();
+        createDreamScene(params.currentScene);
+        createDynamicLighting();
+        renderer.setClearColor(params.backgroundColor, 1);
+        spark.apertureAngle = params.depthOfField * 0.02;
+      });
+
+      // Fullscreen Button
+      document.getElementById('fullscreenBtn').addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen();
+        } else {
+          document.exitFullscreen();
+        }
+      });
+    }
+
+    // Animation function
+    function animate(time) {
+      controls.update(camera);
+      
+      const deltaTime = time * 0.001;
+      
+      // Animate portal
+      if (portalMesh && !isTransitioning) {
+        portalMesh.rotation.y += deltaTime * 0.2 * params.animationSpeed;
+        portalMesh.rotation.z += deltaTime * 0.1 * params.animationSpeed;
+      }
+
+      // Animate lighting
+      if (params.dynamicLighting && lightingLayer) {
+        lightingLayer.children.forEach((light, index) => {
+          const angle = time * 0.001 * (0.5 + index * 0.3) * params.animationSpeed;
+          const radius = 2 + index * 0.5;
+          light.position.x = Math.cos(angle) * radius;
+          light.position.y = Math.sin(angle) * radius * 0.5;
+        });
+      }
+
+      // Animate background stars
+      if (backgroundStars) {
+        backgroundStars.rotation.y += deltaTime * 0.05 * params.animationSpeed;
+      }
+      
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Initialize UI
+    updateUI();
+    setupEventListeners();
+    
+    // Start animation loop
+    animate(0);
+  </script>
+</body>
+
+</html> 

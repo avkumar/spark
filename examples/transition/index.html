@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SparkJS Model Transition</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { margin: 0; overflow: hidden; background: #000; }
+    #nextBtn {
+      position: absolute;
+      top: 20px; left: 20px;
+      padding: 10px 20px;
+      background: white; border: none;
+      font-size: 16px;
+      z-index: 10;
+      cursor: pointer;
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.module.js",
+        "@sparkjsdev/spark": "https://sparkjs.dev/releases/spark/0.1.6/spark.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <button id="nextBtn">Next Model →</button>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { SplatMesh } from '@sparkjsdev/spark';
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 100);
+    camera.position.set(0, 5, 0);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(innerWidth, innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const urls = [
+      'https://sparkjs.dev/assets/splats/butterfly.spz',
+      'https://sparkjs.dev/assets/splats/forge.spz',
+      'https://sparkjs.dev/assets/splats/food/burger-from-amboy.spz'
+    ];
+
+    let current = 0;
+    const models = [];
+    let isTransitioning = false;
+
+    async function loadAllModels() {
+      for (let i = 0; i < urls.length; i++) {
+        const mesh = await new Promise((resolve) => {
+          new SplatMesh({
+            url: urls[i],
+            onLoad(m) {
+              m.scale.set(2, 2, 2);
+             m.rotation.x = Math.PI /2;
+            //   m.rotation.z = Math.PI;
+              m.visible = false;
+              m.userData.opacity = 1;
+              m.material = new THREE.PointsMaterial({ size: 0.01, vertexColors: true, transparent: true, opacity: 1 });
+              m.geometry = m.children[0]?.geometry || new THREE.BufferGeometry();
+              scene.add(m);
+              console.log("Loaded:", urls[i]);
+              resolve(m);
+            }
+          });
+        });
+        models.push(mesh);
+      }
+
+      models[0].visible = true;
+    }
+
+    loadAllModels();
+
+    function transitionToNextModel() {
+      if (isTransitioning || models.length < 2) return;
+      isTransitioning = true;
+
+      const prev = models[current];
+      current = (current + 1) % models.length;
+      const next = models[current];
+
+      next.visible = true;
+      next.scale.set(0.1, 0.1, 0.1);
+      next.material.opacity = 0;
+
+      const scatterAmount = 1.5;
+      let t = 0;
+      const duration = 60;
+
+      const geometry = prev.geometry;
+      const positionAttr = geometry?.attributes?.position;
+      const prevInitialPositions = positionAttr ? positionAttr.array.slice() : [];
+
+      function step() {
+        t++;
+        const progress = t / duration;
+
+        // Scatter previous model
+        if (positionAttr) {
+          const positions = positionAttr.array;
+          for (let i = 0; i < positions.length; i += 3) {
+            const originalX = prevInitialPositions[i];
+            const originalY = prevInitialPositions[i + 1];
+            const originalZ = prevInitialPositions[i + 2];
+
+            positions[i] = originalX + (Math.random() - 0.5) * scatterAmount * progress;
+            positions[i + 1] = originalY + (Math.random() - 0.5) * scatterAmount * progress;
+            positions[i + 2] = originalZ + (Math.random() - 0.5) * scatterAmount * progress;
+          }
+          positionAttr.needsUpdate = true;
+        }
+
+        // Interpolate opacity and scale
+        if (prev.material) prev.material.opacity = 1 - progress;
+        if (next.material) next.material.opacity = progress;
+        prev.scale.setScalar(2 * (1 - progress));
+        next.scale.setScalar(0.1 + 1.9 * progress);
+
+        if (t < duration) {
+          requestAnimationFrame(step);
+        } else {
+          prev.visible = false;
+          prev.scale.set(2, 2, 2);
+          if (prev.material) prev.material.opacity = 1;
+          if (next.material) next.material.opacity = 1;
+          isTransitioning = false;
+        }
+      }
+
+      step();
+    }
+
+    document.getElementById('nextBtn').addEventListener('click', () => {
+      transitionToNextModel();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight') {
+        transitionToNextModel();
+      }
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+  </script>
+</body>
+</html>

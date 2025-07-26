@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cosmic Observatory • 3D Gaussian Splatting</title>
+  <style>
+    body {
+      margin: 0;
+      background: radial-gradient(ellipse at center, #0a0520 0%, #000000 100%);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+      color: white;
+    }
+    
+    #controls {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      z-index: 100;
+      background: rgba(10, 5, 32, 0.95);
+      padding: 12px;
+      border-radius: 12px;
+      backdrop-filter: blur(20px);
+      border: 2px solid rgba(156, 39, 176, 0.4);
+      min-width: 260px;
+      max-width: 280px;
+      box-shadow: 0 8px 32px rgba(156, 39, 176, 0.3);
+    }
+    
+    #controls h3 {
+      margin: 0 0 15px 0;
+      color: #9c27b0;
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      text-shadow: 0 0 15px rgba(156, 39, 176, 0.8);
+    }
+    
+    .control-group {
+      margin-bottom: 10px;
+    }
+    
+    .control-group label {
+      display: block;
+      margin-bottom: 4px;
+      color: #ce93d8;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    
+    .control-group input[type="range"] {
+      width: 100%;
+      margin-bottom: 5px;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(156, 39, 176, 0.2);
+      outline: none;
+    }
+    
+    .control-group input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #9c27b0, #ab47bc);
+      cursor: pointer;
+      box-shadow: 0 0 15px rgba(156, 39, 176, 0.6);
+    }
+    
+    .celestial-selector {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+    
+    .celestial-btn {
+      padding: 6px 3px;
+      background: rgba(63, 81, 181, 0.2);
+      border: 1px solid rgba(63, 81, 181, 0.4);
+      color: #9fa8da;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 9px;
+      transition: all 0.3s ease;
+      text-align: center;
+    }
+    
+    .celestial-btn.active {
+      background: linear-gradient(135deg, #3f51b5, #5c6bc0);
+      color: white;
+      box-shadow: 0 4px 15px rgba(63, 81, 181, 0.4);
+    }
+    
+    .observation-modes {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+    
+    .mode-btn {
+      padding: 6px;
+      background: rgba(255, 87, 34, 0.2);
+      border: 1px solid rgba(255, 87, 34, 0.4);
+      color: #ffab91;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 10px;
+      transition: all 0.3s ease;
+      text-align: center;
+    }
+    
+    .mode-btn.active {
+      background: linear-gradient(135deg, #ff5722, #ff7043);
+      color: white;
+    }
+    
+    button {
+      width: 100%;
+      padding: 8px;
+      background: linear-gradient(135deg, #9c27b0, #ab47bc);
+      border: none;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 6px;
+      font-weight: bold;
+      font-size: 11px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(156, 39, 176, 0.4);
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(156, 39, 176, 0.6);
+    }
+    
+    #info {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(10, 5, 32, 0.95);
+      padding: 15px;
+      border-radius: 12px;
+      backdrop-filter: blur(15px);
+      border: 2px solid rgba(156, 39, 176, 0.3);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    
+    #info h4 {
+      margin: 0 0 10px 0;
+      color: #9c27b0;
+    }
+    
+    .observatory-info {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(10, 5, 32, 0.95);
+      padding: 20px;
+      border-radius: 12px;
+      backdrop-filter: blur(15px);
+      border: 2px solid rgba(156, 39, 176, 0.3);
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    
+    .observatory-info h4 {
+      margin: 0 0 8px 0;
+      color: #9c27b0;
+      font-size: 16px;
+      text-shadow: 0 0 10px rgba(156, 39, 176, 0.5);
+    }
+    
+    .observation-display {
+      color: #ce93d8;
+      font-size: 14px;
+      margin-bottom: 5px;
+    }
+    
+    .coordinates-display {
+      color: #9fa8da;
+      font-size: 12px;
+      font-family: monospace;
+    }
+    
+    .discovery-panel {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      z-index: 100;
+      background: rgba(10, 5, 32, 0.95);
+      padding: 15px;
+      border-radius: 12px;
+      backdrop-filter: blur(15px);
+      border: 2px solid rgba(255, 87, 34, 0.3);
+      text-align: center;
+      min-width: 200px;
+    }
+    
+    .discovery-panel h4 {
+      margin: 0 0 10px 0;
+      color: #ff5722;
+      font-size: 14px;
+    }
+    
+    .discovery-count {
+      color: #ffab91;
+      font-size: 12px;
+      margin: 3px 0;
+    }
+    
+    canvas {
+      touch-action: none;
+    }
+    
+    .scanning-effect {
+      animation: scan 3s infinite;
+    }
+    
+    @keyframes scan {
+      0%, 100% { 
+        border-color: rgba(156, 39, 176, 0.3);
+        box-shadow: 0 8px 32px rgba(156, 39, 176, 0.3);
+      }
+      50% { 
+        border-color: rgba(156, 39, 176, 0.8);
+        box-shadow: 0 8px 32px rgba(156, 39, 176, 0.6);
+      }
+    }
+    
+    .warp-effect {
+      animation: warp 1s ease-in-out;
+    }
+    
+    @keyframes warp {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="controls">
+    <h3>🌌 Cosmic Observatory</h3>
+    
+    <div class="control-group">
+      <label>Celestial Bodies</label>
+      <div class="celestial-selector">
+        <div class="celestial-btn active" data-celestial="stars">⭐ Stars</div>
+        <div class="celestial-btn active" data-celestial="nebulae">🌫️ Nebulae</div>
+        <div class="celestial-btn active" data-celestial="galaxies">🌌 Galaxies</div>
+        <div class="celestial-btn" data-celestial="planets">🪐 Planets</div>
+        <div class="celestial-btn" data-celestial="asteroids">☄️ Asteroids</div>
+        <div class="celestial-btn" data-celestial="blackholes">🕳️ Black Holes</div>
+      </div>
+    </div>
+    
+    <div class="control-group">
+      <label>Observation Mode</label>
+      <div class="observation-modes">
+        <div class="mode-btn active" data-mode="optical">🔭 Optical</div>
+        <div class="mode-btn" data-mode="infrared">🌡️ Infrared</div>
+        <div class="mode-btn" data-mode="xray">⚡ X-Ray</div>
+        <div class="mode-btn" data-mode="radio">📡 Radio</div>
+      </div>
+    </div>
+    
+    <div class="control-group">
+      <label>Cosmic Scale: <span id="scaleValue">1.0</span></label>
+      <input type="range" id="cosmicScale" min="0.1" max="5.0" value="1.0" step="0.1">
+    </div>
+    
+    <div class="control-group">
+      <label>Time Acceleration: <span id="timeValue">1.0x</span></label>
+      <input type="range" id="timeAccel" min="0.1" max="10.0" value="1.0" step="0.1">
+    </div>
+    
+    <div class="control-group">
+      <label>Stellar Brightness: <span id="brightnessValue">1.0</span></label>
+      <input type="range" id="brightness" min="0.2" max="3.0" value="1.0" step="0.1">
+    </div>
+    
+    <div class="control-group">
+      <label>Nebula Density: <span id="densityValue">1.0</span></label>
+      <input type="range" id="nebulaDensity" min="0.1" max="2.5" value="1.0" step="0.1">
+    </div>
+    
+    <div class="control-group">
+      <label>Gravitational Lensing: <span id="lensingValue">0.0</span></label>
+      <input type="range" id="lensing" min="0.0" max="2.0" value="0.0" step="0.1">
+    </div>
+    
+    <div class="control-group">
+      <label>Telescope Focus: <span id="focusValue">1.0</span></label>
+      <input type="range" id="telescopeFocus" min="0.3" max="3.0" value="1.0" step="0.1">
+    </div>
+    
+    <button id="warpBtn">🚀 Hyperspeed Travel</button>
+    <button id="scanBtn">🔍 Deep Space Scan</button>
+    <button id="discoverBtn">🎯 Discovery Mode</button>
+    <button id="resetBtn">🏠 Return to Earth</button>
+  </div>
+  
+  <div class="observatory-info">
+    <h4>🔭 Space Observatory</h4>
+    <div class="observation-display" id="currentTarget">Milky Way Center</div>
+    <div class="coordinates-display" id="coordinates">RA: 17h45m37.2s DEC: -28°56'10"</div>
+  </div>
+  
+  <div class="discovery-panel">
+    <h4>🎯 Discoveries</h4>
+    <div class="discovery-count" id="starsFound">Stars: 0</div>
+    <div class="discovery-count" id="planetsFound">Exoplanets: 0</div>
+    <div class="discovery-count" id="nebulaeFound">Nebulae: 0</div>
+    <div class="discovery-count" id="galaxiesFound">Galaxies: 0</div>
+  </div>
+  
+  <div id="info">
+    <h4>Observatory Controls</h4>
+    <div>WASD: Navigate through space</div>
+    <div>Mouse: Pan telescope view</div>
+    <div>Scroll: Zoom in/out</div>
+    <div>Click: Focus on celestial object</div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+        "@sparkjsdev/spark": "https://unpkg.com/@sparkjsdev/spark@latest/dist/spark.module.js"
+      }
+    }
+  </script>
+  
+  <script type="module">
+    import * as THREE from "three";
+    import { 
+      SplatMesh, 
+      SparkRenderer, 
+      SparkControls,
+      SplatEdit,
+      SplatEditSdf,
+      SplatEditSdfType,
+      SplatEditRgbaBlendMode
+    } from "@sparkjsdev/spark";
+
+    // Observatory parameters
+    const params = {
+      celestialBodies: new Set(['stars', 'nebulae', 'galaxies']),
+      observationMode: 'optical',
+      cosmicScale: 1.0,
+      timeAcceleration: 1.0,
+      stellarBrightness: 1.0,
+      nebulaDensity: 1.0,
+      gravitationalLensing: 0.0,
+      telescopeFocus: 1.0,
+      isScanning: false,
+      isWarping: false,
+      discoveryMode: false,
+      discoveries: {
+        stars: 0,
+        planets: 0,
+        nebulae: 0,
+        galaxies: 0
+      }
+    };
+
+    // Observation mode configurations
+    const observationModes = {
+      optical: {
+        name: 'Optical Telescope',
+        colors: { primary: 0xffffff, secondary: 0xffffcc, accent: 0xfff8dc },
+        brightness: 1.0,
+        contrast: 1.0
+      },
+      infrared: {
+        name: 'Infrared Observatory',
+        colors: { primary: 0xff4444, secondary: 0xff6666, accent: 0xff8888 },
+        brightness: 1.2,
+        contrast: 1.3
+      },
+      xray: {
+        name: 'X-Ray Telescope',
+        colors: { primary: 0x4444ff, secondary: 0x6666ff, accent: 0x8888ff },
+        brightness: 0.8,
+        contrast: 2.0
+      },
+      radio: {
+        name: 'Radio Telescope',
+        colors: { primary: 0x44ff44, secondary: 0x66ff66, accent: 0x88ff88 },
+        brightness: 0.6,
+        contrast: 1.5
+      }
+    };
+
+    // Celestial body configurations (adjusted for 3D objects)
+    const celestialTypes = {
+      stars: { count: 500, size: 0.02, luminosity: 1.0, movement: 0.001 },
+      nebulae: { count: 80, size: 0.15, luminosity: 0.8, movement: 0.0005 },
+      galaxies: { count: 20, size: 0.25, luminosity: 1.2, movement: 0.0002 },
+      planets: { count: 100, size: 0.05, luminosity: 0.3, movement: 0.003 },
+      asteroids: { count: 200, size: 0.01, luminosity: 0.2, movement: 0.008 },
+      blackholes: { count: 15, size: 0.3, luminosity: 0.1, movement: 0.0001 }
+    };
+
+    // Three.js setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 1);
+    document.body.appendChild(renderer.domElement);
+
+    // Camera setup
+    camera.position.set(0, 0, 15);
+    
+    // Spark renderer
+    const spark = new SparkRenderer({
+      renderer,
+      apertureAngle: 0.008,
+      focalDistance: 15.0,
+      maxStdDev: 2.0
+    });
+    scene.add(spark);
+
+    // Controls
+    const controls = new SparkControls({ canvas: renderer.domElement });
+
+    // Add basic lighting for 3D objects
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+    scene.add(ambientLight);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(10, 10, 5);
+    scene.add(directionalLight);
+
+    // Texture loader for realistic space imagery
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.crossOrigin = 'anonymous'; // Enable CORS for external images
+    
+    // Texture loading helper with fallback
+    function loadTextureWithFallback(primaryUrl, fallbackUrl, onLoad) {
+      return textureLoader.load(
+        primaryUrl,
+        onLoad, // success callback
+        undefined, // progress callback
+        () => {
+          // error callback - try fallback
+          console.log('Primary texture failed, trying fallback:', primaryUrl);
+          if (fallbackUrl) {
+            textureLoader.load(
+              fallbackUrl,
+              onLoad,
+              undefined,
+              () => {
+                console.log('Fallback texture also failed:', fallbackUrl);
+              }
+            );
+          }
+        }
+      );
+    }
+    
+    // Real space textures from reliable sources
+    const spaceTextures = {
+      // Planets (High-quality space textures)
+      planets: [
+        'https://cdn.pixabay.com/photo/2011/12/13/14/31/earth-11015_1280.jpg', // Earth
+        'https://cdn.pixabay.com/photo/2011/12/14/12/17/mars-11012_1280.jpg', // Mars
+        'https://cdn.pixabay.com/photo/2011/12/13/14/28/jupiter-11030_1280.jpg', // Jupiter
+        'https://cdn.pixabay.com/photo/2011/12/13/14/39/saturn-11404_1280.jpg', // Saturn
+        'https://cdn.pixabay.com/photo/2020/09/15/14/11/venus-5574096_1280.jpg', // Venus
+        'https://cdn.pixabay.com/photo/2020/04/07/17/05/planet-5014569_1280.jpg', // Mercury
+        'https://cdn.pixabay.com/photo/2020/04/07/17/05/planet-5014571_1280.jpg', // Uranus
+        'https://cdn.pixabay.com/photo/2020/04/07/17/05/planet-5014570_1280.jpg'  // Neptune
+      ],
+      // Stars (Solar surface textures)
+      stars: [
+        'https://cdn.pixabay.com/photo/2011/12/13/14/30/sun-11582_1280.jpg',
+        'https://cdn.pixabay.com/photo/2020/06/24/10/55/sun-5333140_1280.jpg'
+      ],
+      // Nebulae (Space cloud formations)
+      nebulae: [
+        'https://cdn.pixabay.com/photo/2011/12/13/14/28/nebula-11636_1280.jpg',
+        'https://cdn.pixabay.com/photo/2011/12/14/12/17/space-11100_1280.jpg',
+        'https://cdn.pixabay.com/photo/2020/01/16/17/50/nebula-4770943_1280.jpg'
+      ],
+      // Galaxies
+      galaxies: [
+        'https://cdn.pixabay.com/photo/2011/12/13/14/28/galaxy-11604_1280.jpg',
+        'https://cdn.pixabay.com/photo/2017/08/30/01/05/milky-way-2695569_1280.jpg'
+      ],
+      // Black hole accretion disk
+      blackhole: 'https://cdn.pixabay.com/photo/2019/07/02/05/54/whirlpool-4311543_1280.jpg',
+      // Asteroid texture
+      asteroid: 'https://cdn.pixabay.com/photo/2011/12/14/12/17/rock-11287_1280.jpg'
+    };
+
+    // Alternative high-quality space textures (fallback URLs)
+    const fallbackTextures = {
+      planets: [
+        'https://cdn.pixabay.com/photo/2011/12/13/14/31/earth-11015_1280.jpg',
+        'https://cdn.pixabay.com/photo/2011/12/14/12/17/mars-11012_1280.jpg',
+        'https://cdn.pixabay.com/photo/2011/12/13/14/28/jupiter-11030_1280.jpg',
+        'https://cdn.pixabay.com/photo/2011/12/13/14/39/saturn-11404_1280.jpg'
+      ],
+      stars: [
+        'https://cdn.pixabay.com/photo/2011/12/13/14/30/sun-11582_1280.jpg'
+      ],
+      nebulae: [
+        'https://cdn.pixabay.com/photo/2011/12/13/14/28/nebula-11636_1280.jpg',
+        'https://cdn.pixabay.com/photo/2011/12/14/12/17/space-11100_1280.jpg'
+      ],
+      galaxies: [
+        'https://cdn.pixabay.com/photo/2011/12/13/14/28/galaxy-11604_1280.jpg'
+      ],
+      blackhole: 'https://cdn.pixabay.com/photo/2017/08/30/01/05/milky-way-2695569_1280.jpg',
+      asteroid: 'https://cdn.pixabay.com/photo/2011/12/14/12/17/rock-11287_1280.jpg'
+    };
+
+    // Scene objects
+    let cosmicEnvironment = {};
+    let gravitationalEffects = null;
+    let stellarLighting = null;
+    let cosmicParticles = null;
+    let discoveryTargets = [];
+
+    // Create cosmic environment with realistic 3D objects
+    function createCosmicEnvironment() {
+      // Clear existing celestial bodies
+      Object.values(cosmicEnvironment).forEach(body => {
+        if (body) {
+          scene.remove(body);
+          if (body.geometry) body.geometry.dispose();
+          if (body.material) body.material.dispose();
+        }
+      });
+      cosmicEnvironment = {};
+
+      const mode = observationModes[params.observationMode];
+      
+      params.celestialBodies.forEach(bodyType => {
+        const config = celestialTypes[bodyType];
+        const count = Math.floor(config.count * params.cosmicScale);
+        
+        const group = new THREE.Group();
+        group.userData.velocities = [];
+        group.userData.bodyType = bodyType;
+        
+        for (let i = 0; i < count; i++) {
+          let celestialObject;
+          let x, y, z, distance;
+          
+          // Position based on body type
+          if (bodyType === 'galaxies') {
+            distance = 30 + Math.random() * 50;
+            const angle = Math.random() * Math.PI * 2;
+            const elevation = (Math.random() - 0.5) * Math.PI * 0.8;
+            x = Math.cos(angle) * Math.cos(elevation) * distance;
+            y = Math.sin(elevation) * distance;
+            z = Math.sin(angle) * Math.cos(elevation) * distance;
+          } else if (bodyType === 'stars') {
+            distance = 5 + Math.random() * 40;
+            const angle = Math.random() * Math.PI * 2;
+            const elevation = (Math.random() - 0.5) * Math.PI;
+            x = Math.cos(angle) * Math.cos(elevation) * distance;
+            y = Math.sin(elevation) * distance;
+            z = Math.sin(angle) * Math.cos(elevation) * distance;
+          } else if (bodyType === 'nebulae') {
+            const clusterX = (Math.random() - 0.5) * 60;
+            const clusterY = (Math.random() - 0.5) * 60;
+            const clusterZ = (Math.random() - 0.5) * 60;
+            x = clusterX + (Math.random() - 0.5) * 10;
+            y = clusterY + (Math.random() - 0.5) * 10;
+            z = clusterZ + (Math.random() - 0.5) * 10;
+          } else {
+            x = (Math.random() - 0.5) * 80;
+            y = (Math.random() - 0.5) * 80;
+            z = (Math.random() - 0.5) * 80;
+          }
+          
+          // Create 3D objects based on type
+          switch (bodyType) {
+            case 'stars':
+              const starRadius = 0.2 + Math.random() * 0.8;
+              const starGeometry = new THREE.SphereGeometry(starRadius, 16, 12);
+              
+              // Load random star texture
+              const starTextureIndex = Math.floor(Math.random() * spaceTextures.stars.length);
+              const starTexture = loadTextureWithFallback(
+                spaceTextures.stars[starTextureIndex],
+                fallbackTextures.stars[0]
+              );
+              
+              const starTemp = Math.random();
+              let starColor;
+              if (starTemp < 0.3) {
+                starColor = 0xff6644; // Red giants
+              } else if (starTemp < 0.6) {
+                starColor = 0xffeeaa; // Sun-like
+              } else if (starTemp < 0.8) {
+                starColor = 0xaaccff; // Blue giants
+              } else {
+                starColor = 0xffffff; // White dwarfs
+              }
+              
+              const starMaterial = new THREE.MeshBasicMaterial({
+                map: starTexture,
+                color: starColor,
+                transparent: true,
+                opacity: config.luminosity * params.stellarBrightness,
+                blending: THREE.AdditiveBlending
+              });
+              celestialObject = new THREE.Mesh(starGeometry, starMaterial);
+              
+              // Add realistic star corona/glow
+              const coronaGeometry = new THREE.SphereGeometry(starRadius * 1.5, 12, 8);
+              const coronaMaterial = new THREE.MeshBasicMaterial({
+                color: starColor,
+                transparent: true,
+                opacity: 0.3,
+                blending: THREE.AdditiveBlending
+              });
+              const corona = new THREE.Mesh(coronaGeometry, coronaMaterial);
+              celestialObject.add(corona);
+              break;
+              
+            case 'planets':
+              const planetRadius = 0.3 + Math.random() * 0.7;
+              const planetGeometry = new THREE.SphereGeometry(planetRadius, 32, 24);
+              
+              // Select random planet texture
+              const planetTextureIndex = Math.floor(Math.random() * spaceTextures.planets.length);
+              const planetTexture = loadTextureWithFallback(
+                spaceTextures.planets[planetTextureIndex],
+                fallbackTextures.planets[planetTextureIndex % fallbackTextures.planets.length]
+              );
+              
+              // Planet type determines characteristics
+              const planetNames = ['Earth', 'Mars', 'Jupiter', 'Saturn', 'Venus', 'Mercury', 'Uranus', 'Neptune'];
+              const planetType = planetNames[planetTextureIndex % planetNames.length];
+              
+              const planetMaterial = new THREE.MeshLambertMaterial({
+                map: planetTexture,
+                transparent: true,
+                opacity: 0.95
+              });
+              celestialObject = new THREE.Mesh(planetGeometry, planetMaterial);
+              
+              // Add atmosphere for Earth-like and gas giant planets
+              if (planetType === 'Earth' || planetType === 'Jupiter' || planetType === 'Saturn' || planetType === 'Uranus' || planetType === 'Neptune') {
+                const atmoGeometry = new THREE.SphereGeometry(planetRadius * 1.08, 24, 16);
+                let atmoColor = 0x87ceeb; // Default blue
+                
+                if (planetType === 'Jupiter') atmoColor = 0xffa500;
+                else if (planetType === 'Saturn') atmoColor = 0xffd700;
+                else if (planetType === 'Uranus') atmoColor = 0x4fddff;
+                else if (planetType === 'Neptune') atmoColor = 0x4169e1;
+                
+                const atmoMaterial = new THREE.MeshBasicMaterial({
+                  color: atmoColor,
+                  transparent: true,
+                  opacity: 0.25,
+                  blending: THREE.AdditiveBlending
+                });
+                const atmosphere = new THREE.Mesh(atmoGeometry, atmoMaterial);
+                celestialObject.add(atmosphere);
+              }
+              
+              // Add Saturn's rings
+              if (planetType === 'Saturn') {
+                const ringGeometry = new THREE.RingGeometry(planetRadius * 1.2, planetRadius * 2.0, 32);
+                const ringMaterial = new THREE.MeshBasicMaterial({
+                  color: 0xffd700,
+                  transparent: true,
+                  opacity: 0.6,
+                  side: THREE.DoubleSide
+                });
+                const rings = new THREE.Mesh(ringGeometry, ringMaterial);
+                rings.rotation.x = Math.PI * 0.5;
+                celestialObject.add(rings);
+              }
+              break;
+              
+            case 'nebulae':
+              // Create realistic nebula using Hubble imagery
+              const nebulaGroup = new THREE.Group();
+              
+              // Select random nebula texture
+              const nebulaTextureIndex = Math.floor(Math.random() * spaceTextures.nebulae.length);
+              const nebulaTexture = loadTextureWithFallback(
+                spaceTextures.nebulae[nebulaTextureIndex],
+                fallbackTextures.nebulae[nebulaTextureIndex % fallbackTextures.nebulae.length]
+              );
+              
+              // Main nebula cloud with real texture
+              const mainNebulaGeometry = new THREE.SphereGeometry(3, 16, 12);
+              const mainNebulaMaterial = new THREE.MeshBasicMaterial({
+                map: nebulaTexture,
+                transparent: true,
+                opacity: 0.7,
+                blending: THREE.AdditiveBlending,
+                side: THREE.DoubleSide
+              });
+              const mainNebula = new THREE.Mesh(mainNebulaGeometry, mainNebulaMaterial);
+              nebulaGroup.add(mainNebula);
+              
+              // Add additional layers for depth
+              for (let j = 0; j < 8; j++) {
+                const cloudRadius = 1 + Math.random() * 3;
+                const cloudGeometry = new THREE.SphereGeometry(cloudRadius, 8, 6);
+                const cloudMaterial = new THREE.MeshBasicMaterial({
+                  map: nebulaTexture,
+                  transparent: true,
+                  opacity: 0.15 + Math.random() * 0.25,
+                  blending: THREE.AdditiveBlending
+                });
+                const cloud = new THREE.Mesh(cloudGeometry, cloudMaterial);
+                cloud.position.set(
+                  (Math.random() - 0.5) * 6,
+                  (Math.random() - 0.5) * 6,
+                  (Math.random() - 0.5) * 6
+                );
+                cloud.rotation.set(
+                  Math.random() * Math.PI,
+                  Math.random() * Math.PI,
+                  Math.random() * Math.PI
+                );
+                nebulaGroup.add(cloud);
+              }
+              
+              // Add bright central stars
+              for (let j = 0; j < 5; j++) {
+                const starGeometry = new THREE.SphereGeometry(0.1, 8, 6);
+                const starMaterial = new THREE.MeshBasicMaterial({
+                  color: 0xffffff,
+                  transparent: true,
+                  opacity: 0.9,
+                  blending: THREE.AdditiveBlending
+                });
+                const nebulaStar = new THREE.Mesh(starGeometry, starMaterial);
+                nebulaStar.position.set(
+                  (Math.random() - 0.5) * 4,
+                  (Math.random() - 0.5) * 4,
+                  (Math.random() - 0.5) * 4
+                );
+                nebulaGroup.add(nebulaStar);
+              }
+              
+              celestialObject = nebulaGroup;
+              break;
+              
+            case 'galaxies':
+              // Create realistic galaxy using astronomical imagery
+              const galaxyGroup = new THREE.Group();
+              
+              // Select random galaxy texture
+              const galaxyTextureIndex = Math.floor(Math.random() * spaceTextures.galaxies.length);
+              const galaxyTexture = loadTextureWithFallback(
+                spaceTextures.galaxies[galaxyTextureIndex],
+                fallbackTextures.galaxies[galaxyTextureIndex % fallbackTextures.galaxies.length]
+              );
+              
+              // Main galaxy disc
+              const galaxyDiscGeometry = new THREE.PlaneGeometry(8, 8, 32, 32);
+              const galaxyDiscMaterial = new THREE.MeshBasicMaterial({
+                map: galaxyTexture,
+                transparent: true,
+                opacity: 0.9,
+                blending: THREE.AdditiveBlending,
+                side: THREE.DoubleSide
+              });
+              const galaxyDisc = new THREE.Mesh(galaxyDiscGeometry, galaxyDiscMaterial);
+              galaxyDisc.rotation.x = Math.random() * Math.PI * 0.3; // Slight tilt
+              galaxyGroup.add(galaxyDisc);
+              
+              // Central bulge with bright core
+              const bulgeGeometry = new THREE.SphereGeometry(0.8, 16, 12);
+              const bulgeMaterial = new THREE.MeshBasicMaterial({
+                map: galaxyTexture,
+                color: 0xffffaa,
+                transparent: true,
+                opacity: 1.0,
+                blending: THREE.AdditiveBlending
+              });
+              const bulge = new THREE.Mesh(bulgeGeometry, bulgeMaterial);
+              galaxyGroup.add(bulge);
+              
+              // Add subtle outer halo
+              const haloGeometry = new THREE.SphereGeometry(10, 16, 12);
+              const haloMaterial = new THREE.MeshBasicMaterial({
+                map: galaxyTexture,
+                transparent: true,
+                opacity: 0.1,
+                blending: THREE.AdditiveBlending
+              });
+              const halo = new THREE.Mesh(haloGeometry, haloMaterial);
+              galaxyGroup.add(halo);
+              
+              celestialObject = galaxyGroup;
+              break;
+              
+            case 'asteroids':
+              // Create realistic asteroid with surface texture
+              const asteroidRadius = 0.1 + Math.random() * 0.3;
+              const asteroidGeometry = new THREE.SphereGeometry(asteroidRadius, 12, 8);
+              
+              // Make it irregular
+              const positions = asteroidGeometry.attributes.position.array;
+              for (let j = 0; j < positions.length; j += 3) {
+                const vertex = new THREE.Vector3(positions[j], positions[j + 1], positions[j + 2]);
+                vertex.multiplyScalar(0.7 + Math.random() * 0.6);
+                positions[j] = vertex.x;
+                positions[j + 1] = vertex.y;
+                positions[j + 2] = vertex.z;
+              }
+              asteroidGeometry.attributes.position.needsUpdate = true;
+              asteroidGeometry.computeVertexNormals();
+              
+              // Load asteroid texture
+              const asteroidTexture = loadTextureWithFallback(
+                spaceTextures.asteroid,
+                fallbackTextures.asteroid
+              );
+              
+              const asteroidMaterial = new THREE.MeshLambertMaterial({
+                map: asteroidTexture,
+                color: 0x8a7c6a,
+                transparent: true,
+                opacity: 0.9
+              });
+              celestialObject = new THREE.Mesh(asteroidGeometry, asteroidMaterial);
+              break;
+              
+            case 'blackholes':
+              // Create realistic black hole with accretion disk
+              const bhGroup = new THREE.Group();
+              
+              // Event horizon (completely dark)
+              const bhRadius = 0.5 + Math.random() * 1;
+              const bhGeometry = new THREE.SphereGeometry(bhRadius, 16, 12);
+              const bhMaterial = new THREE.MeshBasicMaterial({
+                color: 0x000000,
+                transparent: true,
+                opacity: 1.0
+              });
+              const blackHole = new THREE.Mesh(bhGeometry, bhMaterial);
+              bhGroup.add(blackHole);
+              
+              // Load accretion disk texture
+              const blackholeTexture = loadTextureWithFallback(
+                spaceTextures.blackhole,
+                fallbackTextures.blackhole
+              );
+              
+              // Accretion disk as a ring
+              const diskGeometry = new THREE.RingGeometry(bhRadius * 1.5, bhRadius * 4, 32, 8);
+              const diskMaterial = new THREE.MeshBasicMaterial({
+                map: blackholeTexture,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending,
+                side: THREE.DoubleSide
+              });
+              const accretionDisk = new THREE.Mesh(diskGeometry, diskMaterial);
+              accretionDisk.rotation.x = Math.PI * 0.5;
+              bhGroup.add(accretionDisk);
+              
+              // Add bright jets (polar emissions)
+              for (let j = 0; j < 2; j++) {
+                const jetGeometry = new THREE.CylinderGeometry(0.05, 0.2, bhRadius * 6, 8);
+                const jetMaterial = new THREE.MeshBasicMaterial({
+                  color: 0x44aaff,
+                  transparent: true,
+                  opacity: 0.7,
+                  blending: THREE.AdditiveBlending
+                });
+                const jet = new THREE.Mesh(jetGeometry, jetMaterial);
+                jet.position.y = j === 0 ? bhRadius * 3 : -bhRadius * 3;
+                bhGroup.add(jet);
+              }
+              
+              // Add gravitational lensing ring effect
+              const lensingGeometry = new THREE.RingGeometry(bhRadius * 0.8, bhRadius * 1.2, 24);
+              const lensingMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.3,
+                blending: THREE.AdditiveBlending,
+                side: THREE.DoubleSide
+              });
+              const lensingRing = new THREE.Mesh(lensingGeometry, lensingMaterial);
+              bhGroup.add(lensingRing);
+              
+              celestialObject = bhGroup;
+              break;
+          }
+          
+          if (celestialObject) {
+            celestialObject.position.set(x, y, z);
+            celestialObject.userData.velocity = new THREE.Vector3(
+              (Math.random() - 0.5) * config.movement,
+              (Math.random() - 0.5) * config.movement,
+              (Math.random() - 0.5) * config.movement
+            );
+            
+            // Apply observation mode color filter
+            if (params.observationMode !== 'optical' && celestialObject.material) {
+              const modeColor = new THREE.Color(mode.colors.primary);
+              if (celestialObject.material.color) {
+                celestialObject.material.color.lerp(modeColor, 0.3);
+              }
+            }
+            
+            group.add(celestialObject);
+          }
+        }
+        
+        if (group.children.length > 0) {
+          cosmicEnvironment[bodyType] = group;
+          scene.add(group);
+        }
+      });
+      
+      updateDiscoveryTargets();
+    }
+
+    // Create stellar lighting system
+    function createStellarLighting() {
+      if (stellarLighting) {
+        scene.remove(stellarLighting);
+      }
+
+      stellarLighting = new SplatEdit({
+        rgbaBlendMode: SplatEditRgbaBlendMode.ADD_RGBA,
+        sdfSmooth: 0.3,
+        softEdge: 3.0,
+      });
+      scene.add(stellarLighting);
+
+      // Create dynamic stellar illumination
+      const lightCount = Math.min(12, Math.floor(8 * params.stellarBrightness));
+      
+      for (let i = 0; i < lightCount; i++) {
+        const lightColor = [0xffffff, 0xff4444, 0x4444ff, 0xffffcc][Math.floor(Math.random() * 4)];
+        
+        const stellarLight = new SplatEditSdf({
+          type: SplatEditSdfType.SPHERE,
+          color: new THREE.Color(lightColor),
+          radius: 3.0 + Math.random() * 4.0,
+          opacity: params.stellarBrightness * (0.2 + Math.random() * 0.3),
+        });
+        
+        const distance = 15 + Math.random() * 25;
+        const angle = Math.random() * Math.PI * 2;
+        const elevation = (Math.random() - 0.5) * Math.PI * 0.5;
+        
+        stellarLight.position.set(
+          Math.cos(angle) * Math.cos(elevation) * distance,
+          Math.sin(elevation) * distance,
+          Math.sin(angle) * Math.cos(elevation) * distance
+        );
+        
+        stellarLighting.add(stellarLight);
+      }
+    }
+
+    // Create cosmic particle effects
+    function createCosmicParticles() {
+      if (cosmicParticles) {
+        scene.remove(cosmicParticles);
+        if (cosmicParticles.geometry) cosmicParticles.geometry.dispose();
+        if (cosmicParticles.material) cosmicParticles.material.dispose();
+      }
+
+      const particleCount = 2000;
+      const geometry = new THREE.BufferGeometry();
+      const positions = [];
+      const colors = [];
+      const velocities = [];
+      
+      for (let i = 0; i < particleCount; i++) {
+        // Cosmic dust and radiation
+        const x = (Math.random() - 0.5) * 100;
+        const y = (Math.random() - 0.5) * 100;
+        const z = (Math.random() - 0.5) * 100;
+        
+        positions.push(x, y, z);
+        
+        // Cosmic ray colors
+        const cosmicColors = [0x9c27b0, 0x3f51b5, 0x00bcd4, 0xff5722];
+        const color = new THREE.Color(cosmicColors[Math.floor(Math.random() * cosmicColors.length)]);
+        colors.push(color.r, color.g, color.b);
+        
+        // Particle movement
+        velocities.push(
+          (Math.random() - 0.5) * 0.01,
+          (Math.random() - 0.5) * 0.01,
+          (Math.random() - 0.5) * 0.01
+        );
+      }
+      
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      geometry.userData.velocities = velocities;
+      
+      const material = new THREE.PointsMaterial({
+        size: 0.005,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.3,
+        blending: THREE.AdditiveBlending
+      });
+      
+      cosmicParticles = new THREE.Points(geometry, material);
+      scene.add(cosmicParticles);
+    }
+
+    // Update discovery targets for interaction
+    function updateDiscoveryTargets() {
+      discoveryTargets = [];
+      
+      Object.entries(cosmicEnvironment).forEach(([type, group]) => {
+        if (group && group.children) {
+          group.children.forEach(celestialObject => {
+            discoveryTargets.push({
+              type,
+              position: celestialObject.position.clone(),
+              object: celestialObject,
+              discovered: false
+            });
+          });
+        }
+      });
+    }
+
+    // Change observation mode
+    function changeObservationMode(newMode) {
+      params.observationMode = newMode;
+      const mode = observationModes[newMode];
+      
+      document.getElementById('currentTarget').textContent = mode.name;
+      
+      createCosmicEnvironment();
+      createStellarLighting();
+      
+      // Update UI
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === newMode);
+      });
+    }
+
+    // Toggle celestial body
+    function toggleCelestialBody(bodyType) {
+      if (params.celestialBodies.has(bodyType)) {
+        params.celestialBodies.delete(bodyType);
+      } else {
+        params.celestialBodies.add(bodyType);
+      }
+      
+      createCosmicEnvironment();
+      
+      // Update UI
+      document.querySelectorAll('.celestial-btn').forEach(btn => {
+        btn.classList.toggle('active', params.celestialBodies.has(btn.dataset.celestial));
+      });
+    }
+
+    // Deep space scan
+    function startDeepSpaceScan() {
+      if (params.isScanning) return;
+      
+      params.isScanning = true;
+      const scanBtn = document.getElementById('scanBtn');
+      scanBtn.textContent = '🔍 Scanning...';
+      
+      const controls = document.getElementById('controls');
+      controls.classList.add('scanning-effect');
+      
+      // Simulate discovery process
+      let scanProgress = 0;
+      const scanInterval = setInterval(() => {
+        scanProgress++;
+        
+        // Randomly discover objects
+        if (Math.random() < 0.3) {
+          const types = Array.from(params.celestialBodies);
+          const discoveredType = types[Math.floor(Math.random() * types.length)];
+          
+          if (discoveredType === 'stars' || discoveredType === 'nebulae') {
+            params.discoveries[discoveredType]++;
+          } else if (discoveredType === 'galaxies') {
+            params.discoveries.galaxies++;
+          } else if (discoveredType === 'planets') {
+            params.discoveries.planets++;
+          }
+          
+          updateDiscoveryDisplay();
+        }
+        
+        if (scanProgress >= 20) {
+          clearInterval(scanInterval);
+          params.isScanning = false;
+          scanBtn.textContent = '🔍 Deep Space Scan';
+          controls.classList.remove('scanning-effect');
+        }
+      }, 200);
+    }
+
+    // Hyperspeed travel
+    function startHyperspeedTravel() {
+      if (params.isWarping) return;
+      
+      params.isWarping = true;
+      const warpBtn = document.getElementById('warpBtn');
+      warpBtn.textContent = '🚀 Warping...';
+      
+      const body = document.body;
+      body.classList.add('warp-effect');
+      
+      // Dramatically increase time acceleration during warp
+      const originalTimeAccel = params.timeAcceleration;
+      params.timeAcceleration = 50;
+      
+      // Move camera to random position
+      const targetX = (Math.random() - 0.5) * 100;
+      const targetY = (Math.random() - 0.5) * 100;
+      const targetZ = (Math.random() - 0.5) * 100;
+      
+      const startPos = camera.position.clone();
+      const targetPos = new THREE.Vector3(targetX, targetY, targetZ);
+      const warpDuration = 2000;
+      const startTime = Date.now();
+      
+      function animateWarp() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / warpDuration, 1);
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        
+        camera.position.lerpVectors(startPos, targetPos, easeProgress);
+        
+        if (progress < 1 && params.isWarping) {
+          requestAnimationFrame(animateWarp);
+        } else {
+          params.isWarping = false;
+          params.timeAcceleration = originalTimeAccel;
+          document.getElementById('timeAccel').value = originalTimeAccel;
+          updateUI();
+          warpBtn.textContent = '🚀 Hyperspeed Travel';
+          body.classList.remove('warp-effect');
+          
+          // Update coordinates
+          updateCoordinates();
+        }
+      }
+      
+      animateWarp();
+    }
+
+    // Toggle discovery mode
+    function toggleDiscoveryMode() {
+      params.discoveryMode = !params.discoveryMode;
+      const discoverBtn = document.getElementById('discoverBtn');
+      
+      if (params.discoveryMode) {
+        discoverBtn.textContent = '🎯 Discovery Active';
+        discoverBtn.style.background = 'linear-gradient(135deg, #4caf50, #66bb6a)';
+      } else {
+        discoverBtn.textContent = '🎯 Discovery Mode';
+        discoverBtn.style.background = 'linear-gradient(135deg, #9c27b0, #ab47bc)';
+      }
+    }
+
+    // Update discovery display
+    function updateDiscoveryDisplay() {
+      document.getElementById('starsFound').textContent = `Stars: ${params.discoveries.stars}`;
+      document.getElementById('planetsFound').textContent = `Exoplanets: ${params.discoveries.planets}`;
+      document.getElementById('nebulaeFound').textContent = `Nebulae: ${params.discoveries.nebulae}`;
+      document.getElementById('galaxiesFound').textContent = `Galaxies: ${params.discoveries.galaxies}`;
+    }
+
+    // Update coordinate display
+    function updateCoordinates() {
+      const ra = Math.floor(Math.random() * 24);
+      const raMin = Math.floor(Math.random() * 60);
+      const raSec = (Math.random() * 60).toFixed(1);
+      const dec = Math.floor((Math.random() - 0.5) * 180);
+      const decMin = Math.floor(Math.random() * 60);
+      const decSec = Math.floor(Math.random() * 60);
+      
+      document.getElementById('coordinates').textContent = 
+        `RA: ${ra}h${raMin}m${raSec}s DEC: ${dec > 0 ? '+' : ''}${dec}°${decMin}'${decSec}"`;
+    }
+
+    // Initialize cosmic observatory
+    createCosmicEnvironment();
+    createStellarLighting();
+    createCosmicParticles();
+    updateCoordinates();
+
+    // UI Updates
+    function updateUI() {
+      document.getElementById('scaleValue').textContent = params.cosmicScale.toFixed(1);
+      document.getElementById('timeValue').textContent = params.timeAcceleration.toFixed(1) + 'x';
+      document.getElementById('brightnessValue').textContent = params.stellarBrightness.toFixed(1);
+      document.getElementById('densityValue').textContent = params.nebulaDensity.toFixed(1);
+      document.getElementById('lensingValue').textContent = params.gravitationalLensing.toFixed(1);
+      document.getElementById('focusValue').textContent = params.telescopeFocus.toFixed(1);
+    }
+
+    // Event listeners
+    function setupEventListeners() {
+      // Celestial body buttons
+      document.querySelectorAll('.celestial-btn').forEach(btn => {
+        btn.addEventListener('click', () => toggleCelestialBody(btn.dataset.celestial));
+      });
+      
+      // Observation mode buttons
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => changeObservationMode(btn.dataset.mode));
+      });
+      
+      // Cosmic scale
+      document.getElementById('cosmicScale').addEventListener('input', (e) => {
+        params.cosmicScale = parseFloat(e.target.value);
+        updateUI();
+        createCosmicEnvironment();
+      });
+      
+      // Time acceleration
+      document.getElementById('timeAccel').addEventListener('input', (e) => {
+        if (!params.isWarping) {
+          params.timeAcceleration = parseFloat(e.target.value);
+          updateUI();
+        }
+      });
+      
+      // Stellar brightness
+      document.getElementById('brightness').addEventListener('input', (e) => {
+        params.stellarBrightness = parseFloat(e.target.value);
+        updateUI();
+        createStellarLighting();
+        createCosmicEnvironment();
+      });
+      
+      // Nebula density
+      document.getElementById('nebulaDensity').addEventListener('input', (e) => {
+        params.nebulaDensity = parseFloat(e.target.value);
+        updateUI();
+        if (params.celestialBodies.has('nebulae')) {
+          createCosmicEnvironment();
+        }
+      });
+      
+      // Gravitational lensing
+      document.getElementById('lensing').addEventListener('input', (e) => {
+        params.gravitationalLensing = parseFloat(e.target.value);
+        updateUI();
+        // Apply lensing effects
+        spark.apertureAngle = 0.008 + params.gravitationalLensing * 0.01;
+      });
+      
+      // Telescope focus
+      document.getElementById('telescopeFocus').addEventListener('input', (e) => {
+        params.telescopeFocus = parseFloat(e.target.value);
+        updateUI();
+        spark.focalDistance = 15.0 * params.telescopeFocus;
+      });
+      
+      // Buttons
+      document.getElementById('warpBtn').addEventListener('click', () => {
+        if (!params.isWarping) {
+          startHyperspeedTravel();
+        }
+      });
+      
+      document.getElementById('scanBtn').addEventListener('click', () => {
+        if (!params.isScanning) {
+          startDeepSpaceScan();
+        }
+      });
+      
+      document.getElementById('discoverBtn').addEventListener('click', toggleDiscoveryMode);
+      
+      document.getElementById('resetBtn').addEventListener('click', () => {
+        // Reset all parameters
+        params.celestialBodies = new Set(['stars', 'nebulae', 'galaxies']);
+        params.observationMode = 'optical';
+        params.cosmicScale = 1.0;
+        params.timeAcceleration = 1.0;
+        params.stellarBrightness = 1.0;
+        params.nebulaDensity = 1.0;
+        params.gravitationalLensing = 0.0;
+        params.telescopeFocus = 1.0;
+        params.discoveryMode = false;
+        params.discoveries = { stars: 0, planets: 0, nebulae: 0, galaxies: 0 };
+        
+        // Reset camera
+        camera.position.set(0, 0, 15);
+        camera.lookAt(0, 0, 0);
+        
+        // Update UI controls
+        document.getElementById('cosmicScale').value = params.cosmicScale;
+        document.getElementById('timeAccel').value = params.timeAcceleration;
+        document.getElementById('brightness').value = params.stellarBrightness;
+        document.getElementById('nebulaDensity').value = params.nebulaDensity;
+        document.getElementById('lensing').value = params.gravitationalLensing;
+        document.getElementById('telescopeFocus').value = params.telescopeFocus;
+        
+        // Reset observatory
+        changeObservationMode('optical');
+        updateUI();
+        updateDiscoveryDisplay();
+        updateCoordinates();
+        spark.focalDistance = 15.0;
+        spark.apertureAngle = 0.008;
+      });
+      
+      // Click to discover objects
+      renderer.domElement.addEventListener('click', (event) => {
+        if (!params.discoveryMode) return;
+        
+        const mouse = new THREE.Vector2();
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(mouse, camera);
+        
+        // Check for intersections with discovery targets
+        discoveryTargets.forEach(target => {
+          const distance = raycaster.ray.distanceToPoint(target.position);
+          if (distance < 2 && !target.discovered) {
+            target.discovered = true;
+            params.discoveries[target.type]++;
+            updateDiscoveryDisplay();
+          }
+        });
+      });
+    }
+
+    // Animation loop
+    function animate(time) {
+      controls.update(camera);
+      
+      const deltaTime = time * 0.001 * params.timeAcceleration;
+      
+      // Animate celestial bodies
+      Object.values(cosmicEnvironment).forEach(group => {
+        if (!group || !group.children) return;
+        
+        group.children.forEach((celestialObject, index) => {
+          if (!celestialObject.userData.velocity) return;
+          
+          // Update position
+          celestialObject.position.add(
+            celestialObject.userData.velocity.clone().multiplyScalar(deltaTime)
+          );
+          
+          // Add gravitational effects
+          if (params.gravitationalLensing > 0) {
+            const centerDist = celestialObject.position.length();
+            const lensEffect = params.gravitationalLensing * 0.00001 / (centerDist + 1);
+            celestialObject.position.multiplyScalar(1 + lensEffect);
+          }
+          
+          // Rotate objects for realism
+          const bodyType = group.userData.bodyType;
+          if (bodyType === 'planets') {
+            celestialObject.rotation.y += deltaTime * 2;
+          } else if (bodyType === 'asteroids') {
+            celestialObject.rotation.x += deltaTime * 3;
+            celestialObject.rotation.y += deltaTime * 2;
+          } else if (bodyType === 'galaxies') {
+            celestialObject.rotation.y += deltaTime * 0.5;
+          } else if (bodyType === 'stars') {
+            // Stars pulse
+            const pulse = Math.sin(time * 0.002 + index) * 0.1 + 1;
+            celestialObject.scale.setScalar(pulse);
+          }
+        });
+      });
+      
+      // Animate cosmic particles
+      if (cosmicParticles) {
+        const positions = cosmicParticles.geometry.attributes.position.array;
+        const velocities = cosmicParticles.geometry.userData.velocities;
+        
+        for (let i = 0; i < positions.length; i += 3) {
+          positions[i] += velocities[i] * deltaTime;
+          positions[i + 1] += velocities[i + 1] * deltaTime;
+          positions[i + 2] += velocities[i + 2] * deltaTime;
+          
+          // Reset particles that drift too far
+          if (Math.abs(positions[i]) > 60 || Math.abs(positions[i + 1]) > 60 || Math.abs(positions[i + 2]) > 60) {
+            positions[i] = (Math.random() - 0.5) * 100;
+            positions[i + 1] = (Math.random() - 0.5) * 100;
+            positions[i + 2] = (Math.random() - 0.5) * 100;
+          }
+        }
+        
+        cosmicParticles.geometry.attributes.position.needsUpdate = true;
+      }
+      
+      // Animate stellar lighting
+      if (stellarLighting) {
+        stellarLighting.children.forEach((light, index) => {
+          const orbitSpeed = deltaTime * 0.0001 * (1 + index * 0.1);
+          const radius = 20 + index * 3;
+          const angle = time * orbitSpeed;
+          
+          light.position.x = Math.cos(angle) * radius;
+          light.position.z = Math.sin(angle) * radius;
+          light.position.y += Math.sin(time * 0.0005 + index) * 0.1;
+          
+          // Stellar pulsation
+          const pulse = Math.sin(time * 0.002 + index) * 0.2 + 1;
+          light.opacity = Math.min(1, params.stellarBrightness * 0.25 * pulse);
+        });
+      }
+      
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Initialize
+    updateUI();
+    setupEventListeners();
+    updateDiscoveryDisplay();
+    animate(0);
+  </script>
+</body>
+</html>

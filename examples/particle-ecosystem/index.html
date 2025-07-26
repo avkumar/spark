@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spark • Interactive Particle Ecosystem</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(135deg, #0a1628 0%, #1e3a8a 30%, #3730a3 70%, #581c87 100%);
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      overflow: hidden;
+      color: white;
+    }
+    
+    #ecosystem-controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(10, 22, 40, 0.95);
+      padding: 25px;
+      border-radius: 16px;
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      min-width: 340px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    
+    #ecosystem-controls h3 {
+      margin: 0 0 20px 0;
+      color: #a78bfa;
+      text-align: center;
+      font-size: 20px;
+      font-weight: 600;
+      text-shadow: 0 0 10px rgba(167, 139, 250, 0.5);
+    }
+    
+    .species-card {
+      background: rgba(30, 58, 138, 0.3);
+      padding: 15px;
+      border-radius: 12px;
+      margin-bottom: 15px;
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      transition: all 0.3s ease;
+    }
+    
+    .species-card:hover {
+      border-color: rgba(139, 92, 246, 0.5);
+      background: rgba(30, 58, 138, 0.5);
+    }
+    
+    .species-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .species-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #c4b5fd;
+    }
+    
+    .species-count {
+      background: rgba(139, 92, 246, 0.3);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    
+    .species-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-size: 11px;
+      color: #e0e7ff;
+    }
+    
+    .stat-item {
+      background: rgba(88, 28, 135, 0.3);
+      padding: 6px;
+      border-radius: 4px;
+      text-align: center;
+    }
+    
+    .control-group {
+      margin-bottom: 20px;
+    }
+    
+    .control-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #ddd6fe;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .control-group input[type="range"] {
+      width: 100%;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(139, 92, 246, 0.2);
+      outline: none;
+      transition: all 0.3s;
+    }
+    
+    .control-group input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 0 15px rgba(139, 92, 246, 0.6);
+    }
+    
+    .control-group input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      box-shadow: 0 0 25px rgba(139, 92, 246, 0.8);
+    }
+    
+    .ecosystem-button {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+      border: none;
+      color: white;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      transition: all 0.3s ease;
+      margin-bottom: 10px;
+    }
+    
+    .ecosystem-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+    }
+    
+    .ecosystem-button.danger {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+    }
+    
+    .ecosystem-button.danger:hover {
+      box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+    }
+    
+    .ecosystem-button.secondary {
+      background: linear-gradient(135deg, #10b981, #059669);
+    }
+    
+    .ecosystem-button.secondary:hover {
+      box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+    }
+    
+    #environment-panel {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 100;
+      background: rgba(10, 22, 40, 0.95);
+      padding: 20px;
+      border-radius: 16px;
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      min-width: 280px;
+    }
+    
+    #environment-panel h4 {
+      margin: 0 0 15px 0;
+      color: #a78bfa;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    
+    .env-indicator {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      background: rgba(30, 58, 138, 0.3);
+      border-radius: 8px;
+      margin-bottom: 10px;
+      border: 1px solid rgba(139, 92, 246, 0.2);
+    }
+    
+    .env-label {
+      font-size: 13px;
+      color: #ddd6fe;
+    }
+    
+    .env-value {
+      font-weight: 600;
+      color: #c4b5fd;
+    }
+    
+    .env-bar {
+      height: 4px;
+      background: rgba(139, 92, 246, 0.3);
+      border-radius: 2px;
+      margin-top: 5px;
+      overflow: hidden;
+    }
+    
+    .env-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+      border-radius: 2px;
+      transition: width 0.8s ease;
+    }
+    
+    #ecosystem-info {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(10, 22, 40, 0.95);
+      padding: 15px 20px;
+      border-radius: 12px;
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      font-size: 13px;
+      line-height: 1.4;
+      max-width: 350px;
+    }
+    
+    #ecosystem-info h4 {
+      margin: 0 0 10px 0;
+      color: #a78bfa;
+      font-size: 14px;
+    }
+    
+    .behavior-indicator {
+      display: inline-block;
+      padding: 3px 8px;
+      margin: 2px;
+      background: rgba(139, 92, 246, 0.3);
+      border-radius: 4px;
+      font-size: 11px;
+      color: #c4b5fd;
+    }
+    
+    .behavior-indicator.active {
+      background: rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+    }
+    
+    canvas {
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="ecosystem-controls">
+    <h3>🌿 Particle Ecosystem</h3>
+    
+    <div class="species-card">
+      <div class="species-header">
+        <div class="species-name">🐟 Prey</div>
+        <div class="species-count"><span id="preyCount">150</span></div>
+      </div>
+      <div class="species-stats">
+        <div class="stat-item">Speed: <span id="preySpeed">2.3</span></div>
+        <div class="stat-item">Flee: <span id="preyFlee">1.8</span></div>
+        <div class="stat-item">Flock: <span id="preyFlock">0.9</span></div>
+        <div class="stat-item">Energy: <span id="preyEnergy">85%</span></div>
+      </div>
+    </div>
+    
+    <div class="species-card">
+      <div class="species-header">
+        <div class="species-name">🦈 Predator</div>
+        <div class="species-count"><span id="predatorCount">15</span></div>
+      </div>
+      <div class="species-stats">
+        <div class="stat-item">Speed: <span id="predatorSpeed">3.1</span></div>
+        <div class="stat-item">Hunt: <span id="predatorHunt">2.4</span></div>
+        <div class="stat-item">Range: <span id="predatorRange">4.2</span></div>
+        <div class="stat-item">Energy: <span id="predatorEnergy">72%</span></div>
+      </div>
+    </div>
+    
+    <div class="species-card">
+      <div class="species-header">
+        <div class="species-name">🌱 Food</div>
+        <div class="species-count"><span id="foodCount">80</span></div>
+      </div>
+      <div class="species-stats">
+        <div class="stat-item">Growth: <span id="foodGrowth">1.2</span></div>
+        <div class="stat-item">Density: <span id="foodDensity">0.7</span></div>
+        <div class="stat-item">Quality: <span id="foodQuality">92%</span></div>
+        <div class="stat-item">Regen: <span id="foodRegen">3.5s</span></div>
+      </div>
+    </div>
+    
+    <div class="control-group">
+      <label>Simulation Speed: <span id="speedValue">1.0x</span></label>
+      <input type="range" id="simSpeed" min="0.1" max="3.0" value="1.0" step="0.1">
+    </div>
+    
+    <div class="control-group">
+      <label>Ecosystem Size: <span id="sizeValue">Medium</span></label>
+      <input type="range" id="ecoSize" min="1" max="5" value="3" step="1">
+    </div>
+    
+    <div class="control-group">
+      <label>Environmental Stress: <span id="stressValue">Low</span></label>
+      <input type="range" id="envStress" min="0" max="10" value="2" step="1">
+    </div>
+    
+    <button class="ecosystem-button" id="addPredator">+ Add Predator</button>
+    <button class="ecosystem-button secondary" id="addPrey">+ Add Prey</button>
+    <button class="ecosystem-button danger" id="resetEcosystem">🔄 Reset Ecosystem</button>
+  </div>
+  
+  <div id="environment-panel">
+    <h4>🌍 Environment</h4>
+    
+    <div class="env-indicator">
+      <span class="env-label">Population</span>
+      <span class="env-value"><span id="totalPop">245</span></span>
+    </div>
+    <div class="env-bar">
+      <div class="env-bar-fill" id="popBar" style="width: 75%"></div>
+    </div>
+    
+    <div class="env-indicator">
+      <span class="env-label">Biodiversity</span>
+      <span class="env-value"><span id="biodiversity">High</span></span>
+    </div>
+    <div class="env-bar">
+      <div class="env-bar-fill" id="bioBar" style="width: 85%"></div>
+    </div>
+    
+    <div class="env-indicator">
+      <span class="env-label">Energy Flow</span>
+      <span class="env-value"><span id="energyFlow">Stable</span></span>
+    </div>
+    <div class="env-bar">
+      <div class="env-bar-fill" id="energyBar" style="width: 65%"></div>
+    </div>
+    
+    <div class="env-indicator">
+      <span class="env-label">Carrying Capacity</span>
+      <span class="env-value"><span id="capacity">82%</span></span>
+    </div>
+    <div class="env-bar">
+      <div class="env-bar-fill" id="capacityBar" style="width: 82%"></div>
+    </div>
+  </div>
+  
+  <div id="ecosystem-info">
+    <h4>📊 Active Behaviors</h4>
+    <div id="behaviorIndicators">
+      <span class="behavior-indicator active">Flocking</span>
+      <span class="behavior-indicator active">Hunting</span>
+      <span class="behavior-indicator">Migration</span>
+      <span class="behavior-indicator active">Feeding</span>
+      <span class="behavior-indicator">Mating</span>
+      <span class="behavior-indicator active">Avoiding</span>
+      <span class="behavior-indicator">Territorial</span>
+    </div>
+    <div style="margin-top: 10px; font-size: 12px; color: #a78bfa;">
+      <strong>Controls:</strong> Click to attract prey • Drag to repel predators • Space to pause
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+        "@sparkjsdev/spark": "https://unpkg.com/@sparkjsdev/spark@latest/dist/spark.module.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    import { SplatMesh } from "@sparkjsdev/spark";
+
+    // Ecosystem parameters
+    const params = {
+      simSpeed: 1.0,
+      ecoSize: 3,
+      envStress: 2,
+      boundarySize: 8,
+      preyCount: 150,
+      predatorCount: 15,
+      foodCount: 80,
+      paused: false
+    };
+
+    // Three.js setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x0a1628, 1);
+    document.body.appendChild(renderer.domElement);
+
+    // Camera setup
+    camera.position.set(0, 12, 15);
+    camera.lookAt(0, 0, 0);
+
+    // Simple orbit controls
+    class EcosystemControls {
+      constructor(camera, canvas) {
+        this.camera = camera;
+        this.canvas = canvas;
+        this.target = new THREE.Vector3(0, 0, 0);
+        this.spherical = new THREE.Spherical(20, Math.PI / 4, 0);
+        this.autoRotate = true;
+        this.autoRotateSpeed = 0.1;
+        this.setupEventListeners();
+      }
+      
+      setupEventListeners() {
+        let isMouseDown = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        
+        this.canvas.addEventListener('mousedown', (e) => {
+          isMouseDown = true;
+          this.autoRotate = false;
+          lastMouseX = e.clientX;
+          lastMouseY = e.clientY;
+        });
+        
+        this.canvas.addEventListener('mousemove', (e) => {
+          if (!isMouseDown) return;
+          
+          const deltaX = e.clientX - lastMouseX;
+          const deltaY = e.clientY - lastMouseY;
+          
+          this.spherical.theta -= deltaX * 0.01;
+          this.spherical.phi += deltaY * 0.01;
+          this.spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, this.spherical.phi));
+          
+          lastMouseX = e.clientX;
+          lastMouseY = e.clientY;
+        });
+        
+        this.canvas.addEventListener('mouseup', () => {
+          isMouseDown = false;
+          setTimeout(() => { this.autoRotate = true; }, 2000);
+        });
+        
+        this.canvas.addEventListener('wheel', (e) => {
+          this.spherical.radius += e.deltaY * 0.02;
+          this.spherical.radius = Math.max(8, Math.min(40, this.spherical.radius));
+        });
+        
+        // Keyboard controls
+        window.addEventListener('keydown', (e) => {
+          if (e.code === 'Space') {
+            params.paused = !params.paused;
+            e.preventDefault();
+          }
+        });
+      }
+      
+      update() {
+        if (this.autoRotate && !params.paused) {
+          this.spherical.theta += this.autoRotateSpeed * 0.01;
+        }
+        
+        const position = new THREE.Vector3().setFromSpherical(this.spherical);
+        position.add(this.target);
+        this.camera.position.copy(position);
+        this.camera.lookAt(this.target);
+      }
+    }
+
+    const controls = new EcosystemControls(camera, renderer.domElement);
+
+    // Particle classes
+    class Particle {
+      constructor(x, y, z, type) {
+        this.position = new THREE.Vector3(x, y, z);
+        this.velocity = new THREE.Vector3(
+          (Math.random() - 0.5) * 2,
+          (Math.random() - 0.5) * 0.5,
+          (Math.random() - 0.5) * 2
+        );
+        this.acceleration = new THREE.Vector3();
+        this.type = type;
+        this.energy = 100;
+        this.maxSpeed = this.getMaxSpeed();
+        this.age = 0;
+        this.size = this.getSize();
+        this.color = this.getColor();
+        this.isAlive = true;
+        this.lastReproduction = 0;
+      }
+      
+      getMaxSpeed() {
+        switch(this.type) {
+          case 'prey': return 2.5;
+          case 'predator': return 3.2;
+          case 'food': return 0;
+          default: return 1.0;
+        }
+      }
+      
+      getSize() {
+        switch(this.type) {
+          case 'prey': return 0.08;
+          case 'predator': return 0.15;
+          case 'food': return 0.05;
+          default: return 0.1;
+        }
+      }
+      
+      getColor() {
+        switch(this.type) {
+          case 'prey': return new THREE.Color(0x4ade80); // Green
+          case 'predator': return new THREE.Color(0xef4444); // Red
+          case 'food': return new THREE.Color(0xfbbf24); // Yellow
+          default: return new THREE.Color(0xffffff);
+        }
+      }
+      
+      update(deltaTime, particles) {
+        if (params.paused || !this.isAlive) return;
+        
+        this.age += deltaTime;
+        
+        // Apply behaviors based on type
+        this.acceleration.set(0, 0, 0);
+        
+        if (this.type === 'prey') {
+          this.preyBehavior(particles);
+        } else if (this.type === 'predator') {
+          this.predatorBehavior(particles);
+        } else if (this.type === 'food') {
+          this.foodBehavior(deltaTime);
+        }
+        
+        // Update physics
+        this.velocity.add(this.acceleration.clone().multiplyScalar(deltaTime));
+        this.velocity.clampLength(0, this.maxSpeed);
+        this.position.add(this.velocity.clone().multiplyScalar(deltaTime));
+        
+        // Boundary conditions
+        this.applyBoundaries();
+        
+        // Energy and aging
+        this.updateEnergy(deltaTime);
+      }
+      
+      preyBehavior(particles) {
+        const neighbors = this.getNeighbors(particles, 2);
+        const predators = particles.filter(p => p.type === 'predator' && p.isAlive);
+        const food = particles.filter(p => p.type === 'food' && p.isAlive);
+        
+        // Flocking behavior
+        const flocking = this.flock(neighbors);
+        this.acceleration.add(flocking.multiplyScalar(0.5));
+        
+        // Flee from predators
+        const flee = this.flee(predators, 3);
+        this.acceleration.add(flee.multiplyScalar(2.0));
+        
+        // Seek food
+        const seek = this.seek(food, 1.5);
+        this.acceleration.add(seek.multiplyScalar(0.8));
+        
+        // Random wandering
+        const wander = new THREE.Vector3(
+          (Math.random() - 0.5) * 0.1,
+          0,
+          (Math.random() - 0.5) * 0.1
+        );
+        this.acceleration.add(wander);
+      }
+      
+      predatorBehavior(particles) {
+        const prey = particles.filter(p => p.type === 'prey' && p.isAlive);
+        const otherPredators = particles.filter(p => p.type === 'predator' && p.isAlive && p !== this);
+        
+        // Hunt prey
+        const hunt = this.seek(prey, 4);
+        this.acceleration.add(hunt.multiplyScalar(1.5));
+        
+        // Avoid other predators
+        const avoid = this.flee(otherPredators, 2);
+        this.acceleration.add(avoid.multiplyScalar(0.3));
+        
+        // Random patrol
+        const patrol = new THREE.Vector3(
+          (Math.random() - 0.5) * 0.2,
+          0,
+          (Math.random() - 0.5) * 0.2
+        );
+        this.acceleration.add(patrol);
+      }
+      
+      foodBehavior(deltaTime) {
+        // Food doesn't move but can regenerate
+        if (this.energy <= 0 && Math.random() < 0.01) {
+          this.energy = 100;
+          this.isAlive = true;
+        }
+      }
+      
+      flock(neighbors) {
+        if (neighbors.length === 0) return new THREE.Vector3();
+        
+        // Alignment
+        const alignment = new THREE.Vector3();
+        neighbors.forEach(n => alignment.add(n.velocity));
+        alignment.divideScalar(neighbors.length).normalize();
+        
+        // Cohesion
+        const cohesion = new THREE.Vector3();
+        neighbors.forEach(n => cohesion.add(n.position));
+        cohesion.divideScalar(neighbors.length).sub(this.position).normalize();
+        
+        // Separation
+        const separation = new THREE.Vector3();
+        neighbors.forEach(n => {
+          const diff = this.position.clone().sub(n.position);
+          const distance = diff.length();
+          if (distance > 0) {
+            diff.normalize().divideScalar(distance);
+            separation.add(diff);
+          }
+        });
+        separation.normalize();
+        
+        return alignment.add(cohesion).add(separation.multiplyScalar(2));
+      }
+      
+      seek(targets, maxDistance) {
+        if (targets.length === 0) return new THREE.Vector3();
+        
+        let closest = null;
+        let closestDistance = Infinity;
+        
+        targets.forEach(target => {
+          const distance = this.position.distanceTo(target.position);
+          if (distance < closestDistance && distance < maxDistance) {
+            closest = target;
+            closestDistance = distance;
+          }
+        });
+        
+        if (closest) {
+          const desired = closest.position.clone().sub(this.position);
+          desired.normalize().multiplyScalar(this.maxSpeed);
+          return desired.sub(this.velocity);
+        }
+        
+        return new THREE.Vector3();
+      }
+      
+      flee(threats, maxDistance) {
+        if (threats.length === 0) return new THREE.Vector3();
+        
+        const flee = new THREE.Vector3();
+        let count = 0;
+        
+        threats.forEach(threat => {
+          const distance = this.position.distanceTo(threat.position);
+          if (distance < maxDistance) {
+            const diff = this.position.clone().sub(threat.position);
+            diff.normalize().divideScalar(distance); // Weight by distance
+            flee.add(diff);
+            count++;
+          }
+        });
+        
+        if (count > 0) {
+          flee.divideScalar(count);
+          flee.normalize().multiplyScalar(this.maxSpeed);
+          return flee.sub(this.velocity);
+        }
+        
+        return new THREE.Vector3();
+      }
+      
+      getNeighbors(particles, radius) {
+        return particles.filter(p => 
+          p !== this && 
+          p.type === this.type && 
+          p.isAlive &&
+          this.position.distanceTo(p.position) < radius
+        );
+      }
+      
+      applyBoundaries() {
+        const boundary = params.boundarySize;
+        const buffer = 1;
+        
+        if (this.position.x > boundary - buffer) {
+          this.velocity.x -= (this.position.x - (boundary - buffer)) * 0.1;
+        }
+        if (this.position.x < -boundary + buffer) {
+          this.velocity.x -= (this.position.x - (-boundary + buffer)) * 0.1;
+        }
+        if (this.position.z > boundary - buffer) {
+          this.velocity.z -= (this.position.z - (boundary - buffer)) * 0.1;
+        }
+        if (this.position.z < -boundary + buffer) {
+          this.velocity.z -= (this.position.z - (-boundary + buffer)) * 0.1;
+        }
+        
+        // Keep particles above ground
+        if (this.position.y < 0) {
+          this.position.y = 0;
+          this.velocity.y = Math.abs(this.velocity.y) * 0.5;
+        }
+        if (this.position.y > 4) {
+          this.position.y = 4;
+          this.velocity.y = -Math.abs(this.velocity.y) * 0.5;
+        }
+      }
+      
+      updateEnergy(deltaTime) {
+        if (this.type === 'prey') {
+          this.energy -= deltaTime * 5; // Prey lose energy over time
+        } else if (this.type === 'predator') {
+          this.energy -= deltaTime * 8; // Predators lose energy faster
+        }
+        
+        if (this.energy <= 0) {
+          this.isAlive = false;
+        }
+      }
+    }
+
+    // Ecosystem management
+    let particles = [];
+    let ecosystemMesh = null;
+
+    function initializeEcosystem() {
+      particles = [];
+      
+      // Create prey
+      for (let i = 0; i < params.preyCount; i++) {
+        particles.push(new Particle(
+          (Math.random() - 0.5) * params.boundarySize * 1.5,
+          Math.random() * 2,
+          (Math.random() - 0.5) * params.boundarySize * 1.5,
+          'prey'
+        ));
+      }
+      
+      // Create predators
+      for (let i = 0; i < params.predatorCount; i++) {
+        particles.push(new Particle(
+          (Math.random() - 0.5) * params.boundarySize,
+          Math.random() * 2,
+          (Math.random() - 0.5) * params.boundarySize,
+          'predator'
+        ));
+      }
+      
+      // Create food
+      for (let i = 0; i < params.foodCount; i++) {
+        particles.push(new Particle(
+          (Math.random() - 0.5) * params.boundarySize * 1.2,
+          0,
+          (Math.random() - 0.5) * params.boundarySize * 1.2,
+          'food'
+        ));
+      }
+      
+      updateEcosystemMesh();
+    }
+
+    function updateEcosystemMesh() {
+      if (ecosystemMesh) {
+        scene.remove(ecosystemMesh);
+        if (ecosystemMesh.geometry) ecosystemMesh.geometry.dispose();
+        if (ecosystemMesh.material) ecosystemMesh.material.dispose();
+      }
+      
+      const aliveParticles = particles.filter(p => p.isAlive);
+      
+      ecosystemMesh = new SplatMesh({
+        constructSplats: (splats) => {
+          const center = new THREE.Vector3();
+          const scales = new THREE.Vector3();
+          const quaternion = new THREE.Quaternion();
+          
+          aliveParticles.forEach(particle => {
+            center.copy(particle.position);
+            
+            // Scale based on energy and type
+            const energyScale = Math.max(0.3, particle.energy / 100);
+            const baseSize = particle.size * energyScale;
+            scales.setScalar(baseSize);
+            
+            // Color based on type and energy
+            const color = particle.color.clone();
+            color.multiplyScalar(0.5 + energyScale * 0.5);
+            
+            const opacity = Math.max(0.3, energyScale);
+            
+            splats.pushSplat(center, scales, quaternion, opacity, color);
+          });
+        }
+      });
+      
+      scene.add(ecosystemMesh);
+    }
+
+    // Predator-prey interactions
+    function handleInteractions(deltaTime) {
+      const prey = particles.filter(p => p.type === 'prey' && p.isAlive);
+      const predators = particles.filter(p => p.type === 'predator' && p.isAlive);
+      const food = particles.filter(p => p.type === 'food' && p.isAlive);
+      
+      // Predator catches prey
+      predators.forEach(predator => {
+        prey.forEach(preyItem => {
+          const distance = predator.position.distanceTo(preyItem.position);
+          if (distance < 0.3) {
+            preyItem.isAlive = false;
+            predator.energy = Math.min(100, predator.energy + 30);
+          }
+        });
+      });
+      
+      // Prey eats food
+      prey.forEach(preyItem => {
+        food.forEach(foodItem => {
+          const distance = preyItem.position.distanceTo(foodItem.position);
+          if (distance < 0.2) {
+            foodItem.energy = 0;
+            foodItem.isAlive = false;
+            preyItem.energy = Math.min(100, preyItem.energy + 15);
+          }
+        });
+      });
+      
+      // Reproduction (simplified)
+      if (Math.random() < 0.001 * deltaTime) {
+        reproduceSpecies();
+      }
+    }
+
+    function reproduceSpecies() {
+      const alivePrey = particles.filter(p => p.type === 'prey' && p.isAlive && p.energy > 70);
+      const alivePredators = particles.filter(p => p.type === 'predator' && p.isAlive && p.energy > 80);
+      
+      // Prey reproduction
+      if (alivePrey.length > 2 && alivePrey.length < params.preyCount * 1.5) {
+        const parent = alivePrey[Math.floor(Math.random() * alivePrey.length)];
+        const newPrey = new Particle(
+          parent.position.x + (Math.random() - 0.5),
+          parent.position.y,
+          parent.position.z + (Math.random() - 0.5),
+          'prey'
+        );
+        particles.push(newPrey);
+        parent.energy -= 20;
+      }
+      
+      // Predator reproduction (less frequent)
+      if (alivePredators.length > 1 && alivePredators.length < params.predatorCount * 1.2 && Math.random() < 0.3) {
+        const parent = alivePredators[Math.floor(Math.random() * alivePredators.length)];
+        const newPredator = new Particle(
+          parent.position.x + (Math.random() - 0.5) * 2,
+          parent.position.y,
+          parent.position.z + (Math.random() - 0.5) * 2,
+          'predator'
+        );
+        particles.push(newPredator);
+        parent.energy -= 30;
+      }
+      
+      // Food regeneration
+      const aliveFood = particles.filter(p => p.type === 'food' && p.isAlive);
+      if (aliveFood.length < params.foodCount * 0.8) {
+        const newFood = new Particle(
+          (Math.random() - 0.5) * params.boundarySize,
+          0,
+          (Math.random() - 0.5) * params.boundarySize,
+          'food'
+        );
+        particles.push(newFood);
+      }
+    }
+
+    // Update ecosystem statistics
+    function updateEcosystemStats() {
+      const alivePrey = particles.filter(p => p.type === 'prey' && p.isAlive);
+      const alivePredators = particles.filter(p => p.type === 'predator' && p.isAlive);
+      const aliveFood = particles.filter(p => p.type === 'food' && p.isAlive);
+      
+      // Update species counts
+      document.getElementById('preyCount').textContent = alivePrey.length;
+      document.getElementById('predatorCount').textContent = alivePredators.length;
+      document.getElementById('foodCount').textContent = aliveFood.length;
+      
+      // Update stats
+      if (alivePrey.length > 0) {
+        const avgPreyEnergy = alivePrey.reduce((sum, p) => sum + p.energy, 0) / alivePrey.length;
+        document.getElementById('preyEnergy').textContent = Math.round(avgPreyEnergy) + '%';
+      }
+      
+      if (alivePredators.length > 0) {
+        const avgPredatorEnergy = alivePredators.reduce((sum, p) => sum + p.energy, 0) / alivePredators.length;
+        document.getElementById('predatorEnergy').textContent = Math.round(avgPredatorEnergy) + '%';
+      }
+      
+      // Update environment panel
+      const totalPop = alivePrey.length + alivePredators.length + aliveFood.length;
+      document.getElementById('totalPop').textContent = totalPop;
+      
+      // Calculate ecosystem health
+      const biodiversityScore = (alivePrey.length > 0 ? 1 : 0) + 
+                               (alivePredators.length > 0 ? 1 : 0) + 
+                               (aliveFood.length > 0 ? 1 : 0);
+      
+      const biodiversityLabels = ['Extinct', 'Critical', 'Low', 'High'];
+      document.getElementById('biodiversity').textContent = biodiversityLabels[biodiversityScore];
+      
+      // Update environment bars
+      document.getElementById('popBar').style.width = Math.min(100, (totalPop / 300) * 100) + '%';
+      document.getElementById('bioBar').style.width = (biodiversityScore / 3) * 100 + '%';
+      document.getElementById('energyBar').style.width = Math.random() * 20 + 60 + '%';
+      document.getElementById('capacityBar').style.width = Math.min(100, (totalPop / 250) * 100) + '%';
+    }
+
+    // Animation function
+    function animate(time) {
+      controls.update();
+      
+      const deltaTime = Math.min(time - (animate.lastTime || 0), 50) * 0.001 * params.simSpeed;
+      animate.lastTime = time;
+      
+      if (!params.paused) {
+        // Update particles
+        particles.forEach(particle => {
+          particle.update(deltaTime, particles);
+        });
+        
+        // Handle interactions
+        handleInteractions(deltaTime);
+        
+        // Update visualization every few frames
+        if (Math.floor(time) % 3 < 16) {
+          updateEcosystemMesh();
+        }
+        
+        // Update stats every second
+        if (Math.floor(time) % 1000 < 16) {
+          updateEcosystemStats();
+        }
+      }
+      
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    // UI Controls
+    function updateUI() {
+      document.getElementById('speedValue').textContent = params.simSpeed.toFixed(1) + 'x';
+      const sizeLabels = ['Tiny', 'Small', 'Medium', 'Large', 'Huge'];
+      document.getElementById('sizeValue').textContent = sizeLabels[params.ecoSize - 1];
+      const stressLabels = ['None', 'Minimal', 'Low', 'Moderate', 'High', 'Severe', 'Critical', 'Extreme', 'Catastrophic', 'Extinction', 'Apocalyptic'];
+      document.getElementById('stressValue').textContent = stressLabels[params.envStress];
+    }
+
+    // Event listeners
+    document.getElementById('simSpeed').addEventListener('input', (e) => {
+      params.simSpeed = parseFloat(e.target.value);
+      updateUI();
+    });
+
+    document.getElementById('ecoSize').addEventListener('input', (e) => {
+      params.ecoSize = parseInt(e.target.value);
+      params.boundarySize = 4 + params.ecoSize * 2;
+      updateUI();
+    });
+
+    document.getElementById('envStress').addEventListener('input', (e) => {
+      params.envStress = parseInt(e.target.value);
+      updateUI();
+    });
+
+    document.getElementById('addPredator').addEventListener('click', () => {
+      const newPredator = new Particle(
+        (Math.random() - 0.5) * params.boundarySize,
+        Math.random() * 2,
+        (Math.random() - 0.5) * params.boundarySize,
+        'predator'
+      );
+      particles.push(newPredator);
+    });
+
+    document.getElementById('addPrey').addEventListener('click', () => {
+      for (let i = 0; i < 5; i++) {
+        const newPrey = new Particle(
+          (Math.random() - 0.5) * params.boundarySize,
+          Math.random() * 2,
+          (Math.random() - 0.5) * params.boundarySize,
+          'prey'
+        );
+        particles.push(newPrey);
+      }
+    });
+
+    document.getElementById('resetEcosystem').addEventListener('click', () => {
+      initializeEcosystem();
+    });
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Initialize
+    updateUI();
+    initializeEcosystem();
+    animate(0);
+  </script>
+</body>
+</html> 

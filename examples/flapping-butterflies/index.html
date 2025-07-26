@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Butterfly Animation</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: skyblue; }
+  </style>
+</head>
+<body>
+  <script type="module">
+    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.module.js";
+    import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.155.0/examples/jsm/loaders/GLTFLoader.js";
+
+    // Scene setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 5, 12);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const clock = new THREE.Clock();
+    const mixers = [];
+
+    // Load the GLB model
+    const loader = new GLTFLoader();
+    loader.load(
+      "../../dist/assets/animated_butterfly.glb", // ✅ Adjust path based on YOUR folder layout
+      (gltf) => {
+        for (let i = 0; i < 10; i++) {
+          const butterfly = gltf.scene.clone(true);
+          butterfly.position.set(
+            THREE.MathUtils.randFloatSpread(8),
+            Math.random() * 4 + 2,
+            THREE.MathUtils.randFloatSpread(8)
+          );
+          const scale = Math.random() * 0.4 + 0.3;
+          butterfly.scale.set(scale, scale, scale);
+
+          scene.add(butterfly);
+
+          const mixer = new THREE.AnimationMixer(butterfly);
+          gltf.animations.forEach((clip) => {
+            mixer.clipAction(clip).play();
+          });
+
+          mixers.push({
+            mixer,
+            mesh: butterfly,
+            velocity: -0.02 - Math.random() * 0.02
+          });
+        }
+      },
+      undefined,
+      (err) => console.error("Error loading GLB model:", err)
+    );
+
+    // Animation loop
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+
+      for (const { mixer, mesh, velocity } of mixers) {
+        mixer.update(delta);
+        mesh.position.y += velocity;
+        if (mesh.position.y < -1) {
+          mesh.position.y = Math.random() * 5 + 4;
+          mesh.position.x = THREE.MathUtils.randFloatSpread(8);
+          mesh.position.z = THREE.MathUtils.randFloatSpread(8);
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // Handle resizing
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>

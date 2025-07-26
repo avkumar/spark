@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spark • AR/VR Spatial Interface</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      width: 100%;
+      background: radial-gradient(ellipse at center, #000000 0%, #1a0033 40%, #330066 80%, #000000 100%);
+      font-family: 'SF Pro Display', 'Inter', 'Segoe UI', sans-serif;
+      overflow: hidden;
+      color: white;
+      cursor: none;
+    }
+    
+    #spatial-hud {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.1);
+      padding: 25px;
+      border-radius: 20px;
+      backdrop-filter: blur(25px);
+      border: 1px solid rgba(0, 255, 255, 0.2);
+      min-width: 360px;
+      box-shadow: 0 0 40px rgba(0, 255, 255, 0.1);
+    }
+    
+    #spatial-hud h3 {
+      margin: 0 0 20px 0;
+      color: #00ffff;
+      text-align: center;
+      font-size: 22px;
+      font-weight: 300;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+    }
+    
+    .holo-panel {
+      background: linear-gradient(135deg, rgba(0, 255, 255, 0.1), rgba(255, 0, 255, 0.1));
+      padding: 18px;
+      border-radius: 16px;
+      margin-bottom: 18px;
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      transition: all 0.4s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .holo-panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+      transition: left 1s ease;
+    }
+    
+    .holo-panel:hover::before {
+      left: 100%;
+    }
+    
+    .holo-panel:hover {
+      border-color: rgba(0, 255, 255, 0.6);
+      background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(255, 0, 255, 0.2));
+      transform: translateY(-2px);
+      box-shadow: 0 8px 40px rgba(0, 255, 255, 0.2);
+    }
+    
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    
+    .panel-title {
+      font-size: 16px;
+      font-weight: 500;
+      color: #00ffff;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .panel-status {
+      padding: 4px 12px;
+      background: rgba(0, 255, 0, 0.2);
+      border: 1px solid rgba(0, 255, 0, 0.4);
+      border-radius: 20px;
+      font-size: 10px;
+      color: #00ff00;
+      text-transform: uppercase;
+    }
+    
+    .panel-status.warning {
+      background: rgba(255, 165, 0, 0.2);
+      border-color: rgba(255, 165, 0, 0.4);
+      color: #ffa500;
+    }
+    
+    .panel-status.error {
+      background: rgba(255, 0, 0, 0.2);
+      border-color: rgba(255, 0, 0, 0.4);
+      color: #ff0000;
+    }
+    
+    .metric-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 15px;
+    }
+    
+    .metric-item {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 12px;
+      border-radius: 10px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .metric-label {
+      font-size: 10px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+    
+    .metric-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: #00ffff;
+      text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+    }
+    
+    .control-slider {
+      width: 100%;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(0, 255, 255, 0.1);
+      outline: none;
+      margin: 10px 0;
+      position: relative;
+    }
+    
+    .control-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #00ffff 0%, #0080ff 100%);
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .spatial-button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(255, 0, 255, 0.2));
+      border: 1px solid rgba(0, 255, 255, 0.4);
+      color: #00ffff;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.3s ease;
+      margin-bottom: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .spatial-button:hover {
+      background: linear-gradient(135deg, rgba(0, 255, 255, 0.4), rgba(255, 0, 255, 0.4));
+      border-color: rgba(0, 255, 255, 0.8);
+      transform: translateY(-3px);
+      box-shadow: 0 10px 30px rgba(0, 255, 255, 0.3);
+    }
+    
+    .spatial-button.active {
+      background: linear-gradient(135deg, #00ffff, #ff00ff);
+      color: #000;
+      border-color: rgba(255, 255, 255, 0.6);
+    }
+    
+    #hologram-display {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.05);
+      padding: 20px;
+      border-radius: 20px;
+      backdrop-filter: blur(25px);
+      border: 1px solid rgba(255, 0, 255, 0.2);
+      min-width: 300px;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+    
+    #hologram-display h4 {
+      margin: 0 0 16px 0;
+      color: #ff00ff;
+      font-size: 18px;
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+    
+    .holo-item {
+      background: rgba(255, 0, 255, 0.1);
+      padding: 14px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255, 0, 255, 0.3);
+      transition: all 0.3s ease;
+    }
+    
+    .holo-item:hover {
+      background: rgba(255, 0, 255, 0.2);
+      border-color: rgba(255, 0, 255, 0.6);
+      transform: translateX(5px);
+    }
+    
+    .holo-item-title {
+      font-size: 14px;
+      color: #ff88ff;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    
+    .holo-item-data {
+      font-size: 12px;
+      color: #cccccc;
+      line-height: 1.4;
+    }
+    
+    #gesture-tracker {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.1);
+      padding: 18px;
+      border-radius: 16px;
+      backdrop-filter: blur(25px);
+      border: 1px solid rgba(0, 255, 0, 0.2);
+      min-width: 280px;
+    }
+    
+    #gesture-tracker h4 {
+      margin: 0 0 12px 0;
+      color: #00ff00;
+      font-size: 16px;
+      font-weight: 400;
+      text-transform: uppercase;
+    }
+    
+    .gesture-indicator {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      padding: 8px;
+      background: rgba(0, 255, 0, 0.1);
+      border-radius: 8px;
+      transition: all 0.3s ease;
+    }
+    
+    .gesture-indicator.active {
+      background: rgba(0, 255, 0, 0.3);
+      box-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+    }
+    
+    .gesture-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #00ff00;
+      margin-right: 10px;
+      box-shadow: 0 0 10px rgba(0, 255, 0, 0.6);
+    }
+    
+    .gesture-dot.inactive {
+      background: #444;
+      box-shadow: none;
+    }
+    
+    .gesture-name {
+      font-size: 13px;
+      color: #ccffcc;
+    }
+    
+    #mouse-cursor {
+      position: fixed;
+      width: 20px;
+      height: 20px;
+      background: radial-gradient(circle, rgba(0, 255, 255, 0.8) 0%, rgba(0, 255, 255, 0) 70%);
+      border: 2px solid rgba(0, 255, 255, 0.6);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 10000;
+      transition: all 0.1s ease;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+    }
+    
+    #mouse-cursor.gesture-active {
+      width: 40px;
+      height: 40px;
+      background: radial-gradient(circle, rgba(255, 0, 255, 0.8) 0%, rgba(255, 0, 255, 0) 70%);
+      border-color: rgba(255, 0, 255, 0.8);
+      box-shadow: 0 0 30px rgba(255, 0, 255, 0.8);
+    }
+    
+    canvas {
+      touch-action: none;
+    }
+    
+    /* Scrollbar styling */
+    #hologram-display::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    #hologram-display::-webkit-scrollbar-track {
+      background: rgba(255, 0, 255, 0.1);
+      border-radius: 4px;
+    }
+    
+    #hologram-display::-webkit-scrollbar-thumb {
+      background: rgba(255, 0, 255, 0.5);
+      border-radius: 4px;
+    }
+    
+    #hologram-display::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 0, 255, 0.7);
+    }
+    
+    /* Holographic effects */
+    @keyframes holo-flicker {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.8; }
+    }
+    
+    .holo-flicker {
+      animation: holo-flicker 2s ease-in-out infinite;
+    }
+    
+    @keyframes scan-line {
+      0% { transform: translateY(-100%); }
+      100% { transform: translateY(100vh); }
+    }
+    
+    .scan-line {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #00ffff, transparent);
+      animation: scan-line 3s linear infinite;
+      z-index: 1;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Holographic scan line effect -->
+  <div class="scan-line"></div>
+  
+  <!-- Custom cursor -->
+  <div id="mouse-cursor"></div>
+
+  <div id="spatial-hud">
+    <h3>Spatial Interface</h3>
+    
+    <div class="holo-panel">
+      <div class="panel-header">
+        <div class="panel-title">System Status</div>
+        <div class="panel-status">Online</div>
+      </div>
+      <div class="metric-grid">
+        <div class="metric-item">
+          <div class="metric-label">CPU Usage</div>
+          <div class="metric-value"><span id="cpuUsage">23%</span></div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Memory</div>
+          <div class="metric-value"><span id="memUsage">2.1GB</span></div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Network</div>
+          <div class="metric-value"><span id="netSpeed">45Mbps</span></div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Latency</div>
+          <div class="metric-value"><span id="latency">12ms</span></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="holo-panel">
+      <div class="panel-header">
+        <div class="panel-title">Rendering Mode</div>
+        <div class="panel-status warning">Adaptive</div>
+      </div>
+      <input type="range" class="control-slider" id="renderQuality" min="1" max="10" value="7">
+      <div style="display: flex; justify-content: space-between; font-size: 11px; color: #888;">
+        <span>Performance</span>
+        <span>Quality</span>
+      </div>
+    </div>
+    
+    <div class="holo-panel">
+      <div class="panel-header">
+        <div class="panel-title">Spatial Tracking</div>
+        <div class="panel-status">Active</div>
+      </div>
+      <input type="range" class="control-slider" id="trackingSensitivity" min="0.1" max="2.0" value="1.0" step="0.1">
+      <div style="display: flex; justify-content: space-between; font-size: 11px; color: #888;">
+        <span>Low Sensitivity</span>
+        <span>High Sensitivity</span>
+      </div>
+    </div>
+    
+    <button class="spatial-button" id="vrToggle">🥽 Toggle VR Mode</button>
+    <button class="spatial-button" id="arToggle">📱 Toggle AR Mode</button>
+    <button class="spatial-button" id="resetSpace">🔄 Reset Space</button>
+  </div>
+  
+  <div id="hologram-display">
+    <h4>Holographic Objects</h4>
+    
+    <div class="holo-item" data-object="interface">
+      <div class="holo-item-title">Interface Elements</div>
+      <div class="holo-item-data">3D UI panels floating in space with gesture interaction support</div>
+    </div>
+    
+    <div class="holo-item" data-object="data">
+      <div class="holo-item-title">Data Visualization</div>
+      <div class="holo-item-data">Real-time metrics displayed as volumetric holograms</div>
+    </div>
+    
+    <div class="holo-item" data-object="portal">
+      <div class="holo-item-title">Spatial Portals</div>
+      <div class="holo-item-data">Dimensional gateways connecting virtual spaces</div>
+    </div>
+    
+    <div class="holo-item" data-object="ai">
+      <div class="holo-item-title">AI Assistant</div>
+      <div class="holo-item-data">Intelligent agent manifested as interactive light entity</div>
+    </div>
+    
+    <div class="holo-item" data-object="workspace">
+      <div class="holo-item-title">Virtual Workspace</div>
+      <div class="holo-item-data">Infinite canvas for 3D content creation and manipulation</div>
+    </div>
+    
+    <div class="holo-item" data-object="network">
+      <div class="holo-item-title">Network Nodes</div>
+      <div class="holo-item-data">Visualization of connected systems and data flow</div>
+    </div>
+  </div>
+  
+  <div id="gesture-tracker">
+    <h4>Gesture Recognition</h4>
+    
+    <div class="gesture-indicator" id="gesture-point">
+      <div class="gesture-dot"></div>
+      <div class="gesture-name">Point & Select</div>
+    </div>
+    
+    <div class="gesture-indicator" id="gesture-grab">
+      <div class="gesture-dot inactive"></div>
+      <div class="gesture-name">Grab & Move</div>
+    </div>
+    
+    <div class="gesture-indicator" id="gesture-pinch">
+      <div class="gesture-dot inactive"></div>
+      <div class="gesture-name">Pinch & Scale</div>
+    </div>
+    
+    <div class="gesture-indicator" id="gesture-swipe">
+      <div class="gesture-dot inactive"></div>
+      <div class="gesture-name">Swipe & Navigate</div>
+    </div>
+    
+    <div class="gesture-indicator" id="gesture-tap">
+      <div class="gesture-dot inactive"></div>
+      <div class="gesture-name">Tap & Activate</div>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+        "@sparkjsdev/spark": "https://unpkg.com/@sparkjsdev/spark@latest/dist/spark.module.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    import { SplatMesh } from "@sparkjsdev/spark";
+
+    // Spatial interface parameters
+    const params = {
+      renderQuality: 7,
+      trackingSensitivity: 1.0,
+      vrMode: false,
+      arMode: false,
+      spatialScale: 1.0,
+      interfaceDepth: 5,
+      gestureThreshold: 0.5,
+      holoIntensity: 0.8
+    };
+
+    // Three.js setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 0);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    // Camera setup
+    camera.position.set(0, 2, 8);
+    camera.lookAt(0, 0, 0);
+
+    // Advanced spatial controls
+    class SpatialControls {
+      constructor(camera, canvas) {
+        this.camera = camera;
+        this.canvas = canvas;
+        this.target = new THREE.Vector3(0, 0, 0);
+        this.spherical = new THREE.Spherical(10, Math.PI / 3, 0);
+        this.mousePosition = new THREE.Vector2();
+        this.gestureState = 'none';
+        this.isVRMode = false;
+        this.isARMode = false;
+        this.setupEventListeners();
+      }
+      
+      setupEventListeners() {
+        let isMouseDown = false;
+        let gestureStartTime = 0;
+        
+        // Mouse tracking for spatial interaction
+        this.canvas.addEventListener('mousemove', (e) => {
+          this.mousePosition.x = (e.clientX / window.innerWidth) * 2 - 1;
+          this.mousePosition.y = -(e.clientY / window.innerHeight) * 2 + 1;
+          
+          // Update custom cursor
+          const cursor = document.getElementById('mouse-cursor');
+          cursor.style.left = e.clientX - 10 + 'px';
+          cursor.style.top = e.clientY - 10 + 'px';
+          
+          // Spatial interaction
+          this.updateSpatialInteraction();
+          
+          if (!isMouseDown) return;
+          
+          // Camera rotation in VR/AR mode
+          if (this.isVRMode || this.isARMode) {
+            const deltaX = e.movementX * params.trackingSensitivity * 0.01;
+            const deltaY = e.movementY * params.trackingSensitivity * 0.01;
+            
+            this.spherical.theta -= deltaX;
+            this.spherical.phi += deltaY;
+            this.spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, this.spherical.phi));
+          }
+        });
+        
+        this.canvas.addEventListener('mousedown', (e) => {
+          isMouseDown = true;
+          gestureStartTime = Date.now();
+          this.gestureState = 'grabbing';
+          this.updateGestureIndicators();
+          
+          // Visual feedback
+          const cursor = document.getElementById('mouse-cursor');
+          cursor.classList.add('gesture-active');
+        });
+        
+        this.canvas.addEventListener('mouseup', (e) => {
+          isMouseDown = false;
+          const gestureTime = Date.now() - gestureStartTime;
+          
+          if (gestureTime < 200) {
+            this.gestureState = 'tapping';
+            this.triggerTapGesture();
+          } else {
+            this.gestureState = 'none';
+          }
+          
+          this.updateGestureIndicators();
+          
+          // Remove visual feedback
+          const cursor = document.getElementById('mouse-cursor');
+          cursor.classList.remove('gesture-active');
+        });
+        
+        this.canvas.addEventListener('wheel', (e) => {
+          if (this.isVRMode || this.isARMode) {
+            this.spherical.radius += e.deltaY * 0.01;
+            this.spherical.radius = Math.max(3, Math.min(20, this.spherical.radius));
+          } else {
+            this.gestureState = 'pinching';
+            this.updateGestureIndicators();
+            setTimeout(() => {
+              this.gestureState = 'none';
+              this.updateGestureIndicators();
+            }, 300);
+          }
+        });
+        
+        // Keyboard shortcuts
+        window.addEventListener('keydown', (e) => {
+          switch(e.code) {
+            case 'KeyV':
+              this.toggleVRMode();
+              break;
+            case 'KeyA':
+              this.toggleARMode();
+              break;
+            case 'KeyR':
+              this.resetSpatialView();
+              break;
+            case 'Space':
+              e.preventDefault();
+              this.gestureState = 'activating';
+              this.updateGestureIndicators();
+              break;
+          }
+        });
+        
+        window.addEventListener('keyup', (e) => {
+          if (e.code === 'Space') {
+            this.gestureState = 'none';
+            this.updateGestureIndicators();
+          }
+        });
+      }
+      
+      updateSpatialInteraction() {
+        // Simulate hand tracking and spatial interaction
+        const handX = this.mousePosition.x * 5;
+        const handY = this.mousePosition.y * 3;
+        const handZ = -2;
+        
+        // Update spatial objects based on hand position
+        spatialObjects.forEach((obj, index) => {
+          if (obj.userData.interactive) {
+            const distance = Math.sqrt(
+              Math.pow(obj.position.x - handX, 2) +
+              Math.pow(obj.position.y - handY, 2) +
+              Math.pow(obj.position.z - handZ, 2)
+            );
+            
+            if (distance < 2) {
+              obj.userData.highlighted = true;
+              obj.scale.setScalar(1.2);
+            } else {
+              obj.userData.highlighted = false;
+              obj.scale.setScalar(1.0);
+            }
+          }
+        });
+      }
+      
+      updateGestureIndicators() {
+        const gestures = ['point', 'grab', 'pinch', 'swipe', 'tap'];
+        
+        gestures.forEach(gesture => {
+          const indicator = document.getElementById(`gesture-${gesture}`);
+          const dot = indicator.querySelector('.gesture-dot');
+          
+          if (this.gestureState === gesture || 
+              (gesture === 'grab' && this.gestureState === 'grabbing') ||
+              (gesture === 'tap' && this.gestureState === 'tapping') ||
+              (gesture === 'point' && this.gestureState === 'none')) {
+            indicator.classList.add('active');
+            dot.classList.remove('inactive');
+          } else {
+            indicator.classList.remove('active');
+            dot.classList.add('inactive');
+          }
+        });
+      }
+      
+      triggerTapGesture() {
+        // Simulate tap interaction with nearby objects
+        spatialObjects.forEach(obj => {
+          if (obj.userData.highlighted) {
+            this.activateHolographicObject(obj);
+          }
+        });
+      }
+      
+      activateHolographicObject(obj) {
+        // Create activation effect
+        const activationRing = new THREE.RingGeometry(0.5, 1.0, 16);
+        const activationMaterial = new THREE.MeshBasicMaterial({
+          color: 0x00ffff,
+          transparent: true,
+          opacity: 0.8
+        });
+        const ring = new THREE.Mesh(activationRing, activationMaterial);
+        ring.position.copy(obj.position);
+        scene.add(ring);
+        
+        // Animate ring expansion and fade
+        let scale = 1;
+        let opacity = 0.8;
+        const animate = () => {
+          scale += 0.1;
+          opacity -= 0.05;
+          
+          ring.scale.setScalar(scale);
+          ring.material.opacity = opacity;
+          
+          if (opacity > 0) {
+            requestAnimationFrame(animate);
+          } else {
+            scene.remove(ring);
+            ring.geometry.dispose();
+            ring.material.dispose();
+          }
+        };
+        animate();
+        
+        console.log('Holographic object activated:', obj.userData.type);
+      }
+      
+      toggleVRMode() {
+        this.isVRMode = !this.isVRMode;
+        this.isARMode = false;
+        params.vrMode = this.isVRMode;
+        
+        const button = document.getElementById('vrToggle');
+        if (this.isVRMode) {
+          button.classList.add('active');
+          button.textContent = '🥽 VR Mode Active';
+        } else {
+          button.classList.remove('active');
+          button.textContent = '🥽 Toggle VR Mode';
+        }
+        
+        console.log('VR Mode:', this.isVRMode);
+      }
+      
+      toggleARMode() {
+        this.isARMode = !this.isARMode;
+        this.isVRMode = false;
+        params.arMode = this.isARMode;
+        
+        const button = document.getElementById('arToggle');
+        if (this.isARMode) {
+          button.classList.add('active');
+          button.textContent = '📱 AR Mode Active';
+        } else {
+          button.classList.remove('active');
+          button.textContent = '📱 Toggle AR Mode';
+        }
+        
+        console.log('AR Mode:', this.isARMode);
+      }
+      
+      resetSpatialView() {
+        this.spherical.set(10, Math.PI / 3, 0);
+        this.target.set(0, 0, 0);
+        console.log('Spatial view reset');
+      }
+      
+      update() {
+        if (this.isVRMode || this.isARMode) {
+          const position = new THREE.Vector3().setFromSpherical(this.spherical);
+          position.add(this.target);
+          this.camera.position.copy(position);
+          this.camera.lookAt(this.target);
+        } else {
+          // Standard camera movement
+          this.camera.position.x += (this.mousePosition.x * 2 - this.camera.position.x) * 0.05;
+          this.camera.position.y += (-this.mousePosition.y * 2 - this.camera.position.y) * 0.05;
+          this.camera.lookAt(0, 0, 0);
+        }
+      }
+    }
+
+    const controls = new SpatialControls(camera, renderer.domElement);
+
+    // Spatial objects array
+    let spatialObjects = [];
+
+    // Create holographic interface elements
+    function createSpatialInterface() {
+      // Clear existing objects
+      spatialObjects.forEach(obj => {
+        scene.remove(obj);
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) obj.material.dispose();
+      });
+      spatialObjects = [];
+
+      // Create interface panels
+      createInterfacePanels();
+      
+      // Create data visualization nodes
+      createDataNodes();
+      
+      // Create spatial portals
+      createSpatialPortals();
+      
+      // Create AI assistant entity
+      createAIAssistant();
+      
+      // Create network visualization
+      createNetworkNodes();
+    }
+
+    function createInterfacePanels() {
+      const panelMesh = new SplatMesh({
+        constructSplats: (splats) => {
+          const center = new THREE.Vector3();
+          const scales = new THREE.Vector3();
+          const quaternion = new THREE.Quaternion();
+          
+          // Create floating UI panels
+          for (let i = 0; i < 100; i++) {
+            const angle = (i / 100) * Math.PI * 2;
+            const radius = 3 + Math.sin(angle * 4) * 0.5;
+            const height = Math.sin(angle * 6) * 1.5;
+            
+            center.set(
+              Math.cos(angle) * radius,
+              height + 1,
+              Math.sin(angle) * radius * 0.3 - 2
+            );
+            
+            scales.setScalar(0.06);
+            
+            const color = new THREE.Color().setHSL(
+              (angle / (Math.PI * 2)) * 0.3 + 0.5,
+              0.8,
+              0.7
+            );
+            
+            splats.pushSplat(center, scales, quaternion, 0.8, color);
+          }
+        }
+      });
+      
+      panelMesh.userData = { 
+        type: 'interface', 
+        interactive: true,
+        name: 'UI Panels'
+      };
+      
+      scene.add(panelMesh);
+      spatialObjects.push(panelMesh);
+    }
+
+    function createDataNodes() {
+      const dataMesh = new SplatMesh({
+        constructSplats: (splats) => {
+          const center = new THREE.Vector3();
+          const scales = new THREE.Vector3();
+          const quaternion = new THREE.Quaternion();
+          
+          // Create data visualization nodes
+          for (let i = 0; i < 150; i++) {
+            const x = (Math.random() - 0.5) * 8;
+            const y = Math.random() * 4 - 1;
+            const z = (Math.random() - 0.5) * 6 + 2;
+            
+            center.set(x, y, z);
+            
+            const dataValue = Math.random();
+            scales.setScalar(0.04 + dataValue * 0.08);
+            
+            const color = new THREE.Color().setHSL(
+              dataValue * 0.6 + 0.15,
+              0.9,
+              0.6
+            );
+            
+            splats.pushSplat(center, scales, quaternion, 0.7, color);
+          }
+        }
+      });
+      
+      dataMesh.userData = { 
+        type: 'data', 
+        interactive: true,
+        name: 'Data Nodes'
+      };
+      
+      scene.add(dataMesh);
+      spatialObjects.push(dataMesh);
+    }
+
+    function createSpatialPortals() {
+      const portalMesh = new SplatMesh({
+        constructSplats: (splats) => {
+          const center = new THREE.Vector3();
+          const scales = new THREE.Vector3();
+          const quaternion = new THREE.Quaternion();
+          
+          // Create portal rings
+          const portalCount = 3;
+          for (let p = 0; p < portalCount; p++) {
+            const portalAngle = (p / portalCount) * Math.PI * 2;
+            const portalX = Math.cos(portalAngle) * 6;
+            const portalZ = Math.sin(portalAngle) * 6;
+            
+            for (let i = 0; i < 80; i++) {
+              const angle = (i / 80) * Math.PI * 2;
+              const radius = 1.2 + Math.sin(angle * 8) * 0.1;
+              
+              center.set(
+                portalX + Math.cos(angle) * radius,
+                2 + Math.sin(angle * 3) * 0.3,
+                portalZ + Math.sin(angle) * radius * 0.2
+              );
+              
+              scales.setScalar(0.05);
+              
+              const color = new THREE.Color().setHSL(
+                0.8 + Math.sin(angle * 5) * 0.1,
+                0.9,
+                0.8
+              );
+              
+              splats.pushSplat(center, scales, quaternion, 0.9, color);
+            }
+          }
+        }
+      });
+      
+      portalMesh.userData = { 
+        type: 'portal', 
+        interactive: true,
+        name: 'Spatial Portals'
+      };
+      
+      scene.add(portalMesh);
+      spatialObjects.push(portalMesh);
+    }
+
+    function createAIAssistant() {
+      const aiMesh = new SplatMesh({
+        constructSplats: (splats) => {
+          const center = new THREE.Vector3();
+          const scales = new THREE.Vector3();
+          const quaternion = new THREE.Quaternion();
+          
+          // Create AI entity as floating light orb
+          for (let i = 0; i < 200; i++) {
+            const phi = Math.acos(2 * Math.random() - 1);
+            const theta = Math.random() * Math.PI * 2;
+            const radius = 0.8 + Math.random() * 0.4;
+            
+            center.set(
+              radius * Math.sin(phi) * Math.cos(theta) - 4,
+              radius * Math.cos(phi) + 3,
+              radius * Math.sin(phi) * Math.sin(theta)
+            );
+            
+            scales.setScalar(0.03 + Math.random() * 0.04);
+            
+            const intensity = 1 - (radius - 0.8) / 0.4;
+            const color = new THREE.Color().setHSL(
+              0.55 + Math.sin(theta * 3) * 0.1,
+              0.8,
+              0.5 + intensity * 0.4
+            );
+            
+            splats.pushSplat(center, scales, quaternion, 0.8, color);
+          }
+        }
+      });
+      
+      aiMesh.userData = { 
+        type: 'ai', 
+        interactive: true,
+        name: 'AI Assistant'
+      };
+      
+      scene.add(aiMesh);
+      spatialObjects.push(aiMesh);
+    }
+
+    function createNetworkNodes() {
+      const networkMesh = new SplatMesh({
+        constructSplats: (splats) => {
+          const center = new THREE.Vector3();
+          const scales = new THREE.Vector3();
+          const quaternion = new THREE.Quaternion();
+          
+          // Create network topology
+          const nodeCount = 20;
+          const nodes = [];
+          
+          // Generate node positions
+          for (let i = 0; i < nodeCount; i++) {
+            nodes.push(new THREE.Vector3(
+              (Math.random() - 0.5) * 10,
+              Math.random() * 3,
+              (Math.random() - 0.5) * 8 + 4
+            ));
+          }
+          
+          // Create nodes
+          nodes.forEach((node, index) => {
+            center.copy(node);
+            scales.setScalar(0.12);
+            
+            const color = new THREE.Color().setHSL(
+              index * 0.05,
+              0.7,
+              0.6
+            );
+            
+            splats.pushSplat(center, scales, quaternion, 0.9, color);
+          });
+          
+          // Create connections
+          for (let i = 0; i < nodeCount; i++) {
+            for (let j = i + 1; j < nodeCount; j++) {
+              if (Math.random() < 0.3) { // 30% chance of connection
+                const distance = nodes[i].distanceTo(nodes[j]);
+                if (distance < 4) {
+                  // Create connection line with particles
+                  const connectionPoints = 10;
+                  for (let k = 0; k < connectionPoints; k++) {
+                    const t = k / (connectionPoints - 1);
+                    center.lerpVectors(nodes[i], nodes[j], t);
+                    
+                    scales.setScalar(0.02);
+                    
+                    const color = new THREE.Color(0x00ff88);
+                    
+                    splats.pushSplat(center, scales, quaternion, 0.6, color);
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+      
+      networkMesh.userData = { 
+        type: 'network', 
+        interactive: true,
+        name: 'Network Nodes'
+      };
+      
+      scene.add(networkMesh);
+      spatialObjects.push(networkMesh);
+    }
+
+    // Update system metrics
+    function updateSystemMetrics() {
+      // Simulate real-time metrics
+      document.getElementById('cpuUsage').textContent = Math.floor(Math.random() * 30 + 15) + '%';
+      document.getElementById('memUsage').textContent = (Math.random() * 2 + 1.5).toFixed(1) + 'GB';
+      document.getElementById('netSpeed').textContent = Math.floor(Math.random() * 20 + 35) + 'Mbps';
+      document.getElementById('latency').textContent = Math.floor(Math.random() * 10 + 8) + 'ms';
+    }
+
+    // Animation function
+    function animate(time) {
+      controls.update();
+      
+      const deltaTime = time * 0.001;
+      
+      // Animate spatial objects
+      spatialObjects.forEach((obj, index) => {
+        if (obj.rotation) {
+          obj.rotation.y += 0.01 * (index % 2 === 0 ? 1 : -1);
+          
+          // Floating animation
+          if (obj.userData.type === 'ai') {
+            obj.position.y += Math.sin(deltaTime * 2 + index) * 0.01;
+          }
+          
+          // Pulse animation for data nodes
+          if (obj.userData.type === 'data') {
+            const pulse = Math.sin(deltaTime * 3 + index) * 0.1 + 1;
+            obj.scale.setScalar(pulse);
+          }
+          
+          // Portal rotation
+          if (obj.userData.type === 'portal') {
+            obj.rotation.z += 0.02;
+          }
+        }
+      });
+      
+      // Update metrics periodically
+      if (Math.floor(time) % 2000 < 16) {
+        updateSystemMetrics();
+      }
+      
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    // UI Controls
+    document.getElementById('renderQuality').addEventListener('input', (e) => {
+      params.renderQuality = parseInt(e.target.value);
+      console.log('Render quality:', params.renderQuality);
+    });
+
+    document.getElementById('trackingSensitivity').addEventListener('input', (e) => {
+      params.trackingSensitivity = parseFloat(e.target.value);
+      console.log('Tracking sensitivity:', params.trackingSensitivity);
+    });
+
+    document.getElementById('vrToggle').addEventListener('click', () => {
+      controls.toggleVRMode();
+    });
+
+    document.getElementById('arToggle').addEventListener('click', () => {
+      controls.toggleARMode();
+    });
+
+    document.getElementById('resetSpace').addEventListener('click', () => {
+      controls.resetSpatialView();
+      createSpatialInterface();
+    });
+
+    // Holographic object interaction
+    document.querySelectorAll('.holo-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const objectType = item.getAttribute('data-object');
+        const relatedObject = spatialObjects.find(obj => obj.userData.type === objectType);
+        
+        if (relatedObject) {
+          controls.activateHolographicObject(relatedObject);
+          
+          // Visual feedback
+          item.style.background = 'rgba(255, 0, 255, 0.4)';
+          setTimeout(() => {
+            item.style.background = 'rgba(255, 0, 255, 0.1)';
+          }, 500);
+        }
+      });
+    });
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Initialize
+    createSpatialInterface();
+    updateSystemMetrics();
+    animate(0);
+  </script>
+</body>
+</html> 

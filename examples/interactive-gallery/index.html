@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spark • Interactive Art Gallery</title>
+  <style>
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      font-family: 'Arial', sans-serif;
+      overflow: hidden;
+    }
+    
+    #controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 20px;
+      border-radius: 15px;
+      color: white;
+      backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      min-width: 280px;
+    }
+    
+    #controls h3 {
+      margin: 0 0 15px 0;
+      color: #ff6b9d;
+      text-align: center;
+      font-size: 18px;
+    }
+    
+    .control-group {
+      margin-bottom: 15px;
+    }
+    
+    .control-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #ccc;
+      font-size: 12px;
+    }
+    
+    .control-group input[type="range"] {
+      width: 100%;
+      margin-bottom: 5px;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      transition: background 0.3s;
+    }
+    
+    .control-group input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #ff6b9d;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    
+    .control-group input[type="range"]::-webkit-slider-thumb:hover {
+      background: #ff8ab3;
+    }
+    
+    .control-group select {
+      width: 100%;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 5px;
+      color: white;
+      font-size: 12px;
+    }
+    
+    .control-group select option {
+      background: #1a1a2e;
+      color: white;
+    }
+    
+    button {
+      width: 100%;
+      padding: 10px;
+      background: linear-gradient(135deg, #ff6b9d, #ff8ab3);
+      border: none;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 10px;
+      font-weight: bold;
+      font-size: 14px;
+      transition: all 0.3s ease;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(255, 107, 157, 0.4);
+    }
+    
+    #info {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 10px;
+      color: white;
+      backdrop-filter: blur(15px);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    
+    #info h4 {
+      margin: 0 0 10px 0;
+      color: #ff6b9d;
+    }
+    
+    canvas {
+      touch-action: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="controls">
+    <h3>🎨 Interactive Gallery</h3>
+    
+    <div class="control-group">
+      <label>Gallery Mode:</label>
+      <select id="galleryMode">
+        <option value="floating">Floating Gallery</option>
+        <option value="carousel">Carousel</option>
+        <option value="grid">Grid Layout</option>
+        <option value="spiral">Spiral Gallery</option>
+        <option value="dna">DNA Helix</option>
+        <option value="orbit">Orbital System</option>
+        <option value="matrix">Matrix Grid</option>
+        <option value="vortex">Vortex Tunnel</option>
+        <option value="pyramid">Pyramid Stack</option>
+        <option value="galaxy">Galaxy Cluster</option>
+      </select>
+    </div>
+    
+    <div class="control-group">
+      <label>Rotation Speed: <span id="rotationValue">0.5</span></label>
+      <input type="range" id="rotation" min="0" max="2" value="0.5" step="0.01">
+    </div>
+    
+    <div class="control-group">
+      <label>Scale: <span id="scaleValue">1.0</span></label>
+      <input type="range" id="scale" min="0.5" max="2.0" value="1.0" step="0.1">
+    </div>
+    
+    <div class="control-group">
+      <label>Spacing: <span id="spacingValue">2.0</span></label>
+      <input type="range" id="spacing" min="1.0" max="4.0" value="2.0" step="0.1">
+    </div>
+    
+    <div class="control-group">
+      <label>Animation Style:</label>
+      <select id="animationStyle">
+        <option value="smooth">Smooth</option>
+        <option value="bounce">Bounce</option>
+        <option value="wave">Wave</option>
+        <option value="pulse">Pulse</option>
+        <option value="twist">Twist & Turn</option>
+        <option value="float">Floating</option>
+        <option value="spin">Spinning</option>
+        <option value="breath">Breathing</option>
+        <option value="dance">Dancing</option>
+        <option value="chaos">Chaos Mode</option>
+        <option value="magnetic">Magnetic</option>
+        <option value="quantum">Quantum</option>
+      </select>
+    </div>
+    
+    <div class="control-group">
+      <label>Background Theme:</label>
+      <select id="backgroundTheme">
+        <option value="default">Default</option>
+        <option value="sunset">Sunset</option>
+        <option value="ocean">Ocean</option>
+        <option value="forest">Forest</option>
+        <option value="cosmic">Cosmic</option>
+        <option value="neon">Neon</option>
+      </select>
+    </div>
+    
+    <button id="randomizeBtn">🎲 Randomize Layout</button>
+    <button id="resetBtn">🔄 Reset View</button>
+  </div>
+  
+      <div id="info">
+      <h4>Gallery Controls</h4>
+      <div>Mouse: Rotate View</div>
+      <div>Scroll: Zoom in/out</div>
+      <div>Right Click: Pan</div>
+      <div style="margin-top: 10px; color: #ff6b9d;">
+        <strong>Features:</strong><br>
+        • 10 Gallery Modes<br>
+        • 12 Animation Styles<br>
+        • 6 Background Themes<br>
+        • Interactive Controls<br>
+        • Image & Splat Mix<br>
+        • 🌌 Dreamscape Portal<br>
+        • 🎲 Randomize Layout
+      </div>
+    </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+        "@sparkjsdev/spark": "https://unpkg.com/@sparkjsdev/spark@latest/dist/spark.module.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    import { SplatMesh } from "@sparkjsdev/spark";
+
+    // Gallery parameters
+    const params = {
+      rotationSpeed: 0.5,
+      scale: 1.0,
+      spacing: 2.0,
+      galleryMode: 'floating',
+      animationStyle: 'smooth',
+      backgroundTheme: 'default'
+    };
+
+    // Three.js setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x1a1a2e, 1);
+    document.body.appendChild(renderer.domElement);
+
+    // Camera setup
+    camera.position.set(0, 0, 15);
+    
+    // Simple orbit controls
+    class SimpleControls {
+      constructor(camera, canvas) {
+        this.camera = camera;
+        this.canvas = canvas;
+        this.target = new THREE.Vector3();
+        this.rotation = { x: 0, y: 0 };
+        this.distance = 15;
+        this.setupEventListeners();
+      }
+      
+      setupEventListeners() {
+        let isMouseDown = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        
+        this.canvas.addEventListener('mousedown', (e) => {
+          isMouseDown = true;
+          lastMouseX = e.clientX;
+          lastMouseY = e.clientY;
+        });
+        
+        this.canvas.addEventListener('mousemove', (e) => {
+          if (!isMouseDown) return;
+          
+          const deltaX = e.clientX - lastMouseX;
+          const deltaY = e.clientY - lastMouseY;
+          
+          this.rotation.y += deltaX * 0.01;
+          this.rotation.x += deltaY * 0.01;
+          
+          this.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, this.rotation.x));
+          
+          lastMouseX = e.clientX;
+          lastMouseY = e.clientY;
+        });
+        
+        this.canvas.addEventListener('mouseup', () => {
+          isMouseDown = false;
+        });
+        
+        this.canvas.addEventListener('wheel', (e) => {
+          this.distance += e.deltaY * 0.01;
+          this.distance = Math.max(5, Math.min(50, this.distance));
+        });
+      }
+      
+      update() {
+        const x = this.distance * Math.cos(this.rotation.x) * Math.sin(this.rotation.y);
+        const y = this.distance * Math.sin(this.rotation.x);
+        const z = this.distance * Math.cos(this.rotation.x) * Math.cos(this.rotation.y);
+        
+        this.camera.position.set(x, y, z);
+        this.camera.lookAt(this.target);
+      }
+    }
+
+    const controls = new SimpleControls(camera, renderer.domElement);
+
+    // Gallery objects
+    let galleryObjects = [];
+    let time = 0;
+
+    // Create image plane
+    function createImagePlane(imageUrl, position, scale = 1) {
+      const geometry = new THREE.PlaneGeometry(2, 2);
+      const texture = new THREE.TextureLoader().load(imageUrl);
+      const material = new THREE.MeshBasicMaterial({ 
+        map: texture,
+        transparent: true,
+        opacity: 0.9
+      });
+      
+      const plane = new THREE.Mesh(geometry, material);
+      plane.position.copy(position);
+      plane.scale.setScalar(scale);
+      
+      // Add some random rotation for visual interest
+      plane.rotation.y = Math.random() * Math.PI * 2;
+      
+      return plane;
+    }
+
+    // Create splat object
+    async function createSplatObject(splatUrl, position, scale = 1) {
+      try {
+        const splat = new SplatMesh({ url: splatUrl });
+        await splat.initialized;
+        
+        splat.position.copy(position);
+        splat.scale.setScalar(scale);
+        
+        return splat;
+      } catch (error) {
+        console.warn('Failed to load splat:', splatUrl);
+        return null;
+      }
+    }
+
+    // Create dreamscape portal object
+    function createDreamscapePortal(position, scale = 1) {
+      // Create a special portal-like geometry
+      const geometry = new THREE.SphereGeometry(1, 16, 16);
+      const material = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(0xff6b9d),
+        transparent: true,
+        opacity: 0.7,
+        wireframe: true
+      });
+      
+      const portal = new THREE.Mesh(geometry, material);
+      portal.position.copy(position);
+      portal.scale.setScalar(scale);
+      
+      // Add portal-specific properties
+      portal.userData = {
+        type: 'dreamscape',
+        name: 'Dreamscape Portal',
+        portalParticles: []
+      };
+      
+      // Create particle system for portal effect
+      const particleCount = 1000;
+      const particleGeometry = new THREE.BufferGeometry();
+      const positions = [];
+      const colors = [];
+      
+      for (let i = 0; i < particleCount; i++) {
+        const angle = Math.random() * Math.PI * 4;
+        const radius = Math.random() * 2;
+        const spiral = Math.sin(angle * 2) * 0.3;
+        
+        const x = Math.cos(angle) * (radius + spiral);
+        const y = Math.sin(angle) * (radius + spiral) * 0.3;
+        const z = (Math.random() - 0.5) * 1;
+        
+        positions.push(x, y, z);
+        
+        // Portal colors
+        const t = radius / 2;
+        const color = new THREE.Color();
+        color.setHSL(0.8 + t * 0.2, 0.8, 0.5 + t * 0.3);
+        colors.push(color.r, color.g, color.b);
+      }
+      
+      particleGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      particleGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      
+      const particleMaterial = new THREE.PointsMaterial({
+        size: 0.05,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending
+      });
+      
+      const particles = new THREE.Points(particleGeometry, particleMaterial);
+      portal.add(particles);
+      portal.userData.portalParticles = particles;
+      
+      return portal;
+    }
+
+    // Gallery layouts
+    const layouts = {
+      floating: (objects, spacing, time) => {
+        objects.forEach((obj, i) => {
+          const angle = (i / objects.length) * Math.PI * 2 + time * 0.5;
+          const radius = spacing * 3;
+          const height = Math.sin(time + i) * 2;
+          
+          obj.position.x = Math.cos(angle) * radius;
+          obj.position.y = height;
+          obj.position.z = Math.sin(angle) * radius;
+          
+          obj.rotation.y = time * 0.5 + i;
+          obj.rotation.x = Math.sin(time + i) * 0.2;
+        });
+      },
+      
+      carousel: (objects, spacing, time) => {
+        objects.forEach((obj, i) => {
+          const angle = (i / objects.length) * Math.PI * 2 + time * 0.3;
+          const radius = spacing * 4;
+          
+          obj.position.x = Math.cos(angle) * radius;
+          obj.position.y = 0;
+          obj.position.z = Math.sin(angle) * radius;
+          
+          obj.rotation.y = -angle;
+          obj.lookAt(0, 0, 0);
+        });
+      },
+      
+      grid: (objects, spacing, time) => {
+        const cols = Math.ceil(Math.sqrt(objects.length));
+        const rows = Math.ceil(objects.length / cols);
+        
+        objects.forEach((obj, i) => {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          
+          obj.position.x = (col - cols/2) * spacing * 2;
+          obj.position.y = (rows/2 - row) * spacing * 2;
+          obj.position.z = 0;
+          
+          obj.rotation.y = time * 0.2 + i * 0.1;
+        });
+      },
+      
+      spiral: (objects, spacing, time) => {
+        objects.forEach((obj, i) => {
+          const angle = (i / objects.length) * Math.PI * 8 + time * 0.4;
+          const radius = spacing * (1 + i * 0.3);
+          const height = (i / objects.length) * spacing * 4 - spacing * 2;
+          
+          obj.position.x = Math.cos(angle) * radius;
+          obj.position.y = height;
+          obj.position.z = Math.sin(angle) * radius;
+          
+          obj.rotation.y = angle;
+          obj.rotation.x = Math.sin(time + i) * 0.3;
+        });
+      },
+      
+      dna: (objects, spacing, time) => {
+        objects.forEach((obj, i) => {
+          const angle = (i / objects.length) * Math.PI * 4 + time * 0.5;
+          const radius = spacing * 2;
+          const height = (i / objects.length) * spacing * 6 - spacing * 3;
+          const offset = Math.sin(angle * 2) * 0.5;
+          
+          obj.position.x = Math.cos(angle) * radius + offset;
+          obj.position.y = height;
+          obj.position.z = Math.sin(angle) * radius;
+          
+          obj.rotation.y = angle * 2;
+          obj.rotation.z = Math.sin(angle) * 0.5;
+        });
+      },
+      
+      orbit: (objects, spacing, time) => {
+        objects.forEach((obj, i) => {
+          const orbitRadius = spacing * (2 + i * 0.5);
+          const orbitSpeed = 0.3 + (i % 3) * 0.2;
+          const angle = time * orbitSpeed + (i / objects.length) * Math.PI * 2;
+          const height = Math.sin(time * 2 + i) * 2;
+          
+          obj.position.x = Math.cos(angle) * orbitRadius;
+          obj.position.y = height;
+          obj.position.z = Math.sin(angle) * orbitRadius;
+          
+          obj.rotation.y = angle;
+          obj.rotation.x = Math.sin(time + i) * 0.2;
+        });
+      },
+      
+      matrix: (objects, spacing, time) => {
+        const cols = Math.ceil(Math.sqrt(objects.length));
+        const rows = Math.ceil(objects.length / cols);
+        
+        objects.forEach((obj, i) => {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const wave = Math.sin(time + col + row) * 0.5;
+          
+          obj.position.x = (col - cols/2) * spacing * 2;
+          obj.position.y = (rows/2 - row) * spacing * 2 + wave;
+          obj.position.z = Math.sin(time + i) * 2;
+          
+          obj.rotation.y = time * 0.3 + i * 0.2;
+          obj.rotation.x = Math.sin(time + col) * 0.3;
+        });
+      },
+      
+      vortex: (objects, spacing, time) => {
+        objects.forEach((obj, i) => {
+          const angle = (i / objects.length) * Math.PI * 6 + time * 0.6;
+          const radius = spacing * (0.5 + i * 0.2);
+          const height = (i / objects.length) * spacing * 8 - spacing * 4;
+          const spiral = Math.sin(angle * 3) * 0.3;
+          
+          obj.position.x = Math.cos(angle) * (radius + spiral);
+          obj.position.y = height;
+          obj.position.z = Math.sin(angle) * (radius + spiral);
+          
+          obj.rotation.y = angle * 3;
+          obj.rotation.z = Math.sin(time + i) * 0.4;
+        });
+      },
+      
+      pyramid: (objects, spacing, time) => {
+        const layers = Math.ceil(Math.sqrt(objects.length));
+        let objIndex = 0;
+        
+        for (let layer = 0; layer < layers; layer++) {
+          const layerSize = Math.max(1, layers - layer);
+          const layerRadius = spacing * (layers - layer) * 0.8;
+          const layerHeight = (layers - layer) * spacing * 1.5;
+          
+          for (let j = 0; j < layerSize && objIndex < objects.length; j++) {
+            const obj = objects[objIndex];
+            const angle = (j / layerSize) * Math.PI * 2 + time * 0.2;
+            
+            obj.position.x = Math.cos(angle) * layerRadius;
+            obj.position.y = layerHeight;
+            obj.position.z = Math.sin(angle) * layerRadius;
+            
+            obj.rotation.y = time * 0.3 + objIndex * 0.1;
+            obj.rotation.x = Math.sin(time + layer) * 0.2;
+            
+            objIndex++;
+          }
+        }
+      },
+      
+      galaxy: (objects, spacing, time) => {
+        objects.forEach((obj, i) => {
+          const angle = (i / objects.length) * Math.PI * 2 + time * 0.4;
+          const radius = spacing * (1 + Math.random() * 3);
+          const height = (Math.random() - 0.5) * spacing * 4;
+          const spiral = Math.sin(angle * 2) * 0.5;
+          
+          obj.position.x = Math.cos(angle) * (radius + spiral);
+          obj.position.y = height;
+          obj.position.z = Math.sin(angle) * (radius + spiral);
+          
+          obj.rotation.y = angle + time * 0.5;
+          obj.rotation.x = Math.sin(time + i) * 0.3;
+        });
+      }
+    };
+
+    // Animation styles
+    const animations = {
+      smooth: (obj, time, i) => {
+        obj.rotation.y += 0.01;
+        obj.scale.setScalar(params.scale * (0.8 + Math.sin(time + i) * 0.2));
+        
+        // Special animation for dreamscape portals
+        if (obj.userData.type === 'dreamscape' && obj.userData.portalParticles) {
+          obj.userData.portalParticles.rotation.y += 0.02;
+          obj.userData.portalParticles.rotation.z += 0.01;
+        }
+      },
+      
+      bounce: (obj, time, i) => {
+        obj.position.y += Math.sin(time * 2 + i) * 0.1;
+        obj.rotation.y += 0.02;
+        obj.scale.setScalar(params.scale * (0.9 + Math.sin(time * 3 + i) * 0.1));
+        
+        // Special animation for dreamscape portals
+        if (obj.userData.type === 'dreamscape' && obj.userData.portalParticles) {
+          obj.userData.portalParticles.rotation.y += 0.03;
+          obj.userData.portalParticles.material.opacity = 0.6 + Math.sin(time * 3 + i) * 0.2;
+        }
+      },
+      
+      wave: (obj, time, i) => {
+        obj.position.x += Math.sin(time + i) * 0.1;
+        obj.position.z += Math.cos(time + i) * 0.1;
+        obj.rotation.z = Math.sin(time + i) * 0.1;
+        obj.scale.setScalar(params.scale);
+        
+        // Special animation for dreamscape portals
+        if (obj.userData.type === 'dreamscape' && obj.userData.portalParticles) {
+          obj.userData.portalParticles.rotation.x += 0.02;
+          obj.userData.portalParticles.rotation.y += 0.01;
+        }
+      },
+      
+      pulse: (obj, time, i) => {
+        const pulse = Math.sin(time * 4 + i) * 0.5 + 0.5;
+        obj.scale.setScalar(params.scale * (0.5 + pulse * 0.5));
+        obj.rotation.y += 0.015;
+        
+        // Special animation for dreamscape portals
+        if (obj.userData.type === 'dreamscape' && obj.userData.portalParticles) {
+          obj.userData.portalParticles.rotation.y += 0.025;
+          obj.userData.portalParticles.material.opacity = 0.4 + pulse * 0.4;
+        }
+      },
+      
+      twist: (obj, time, i) => {
+        obj.rotation.y += 0.03;
+        obj.rotation.z = Math.sin(time * 2 + i) * 0.5;
+        obj.rotation.x = Math.cos(time * 1.5 + i) * 0.3;
+        obj.scale.setScalar(params.scale * (0.8 + Math.sin(time * 3 + i) * 0.2));
+        
+        if (obj.userData.type === 'dreamscape' && obj.userData.portalParticles) {
+          obj.userData.portalParticles.rotation.y += 0.04;
+          obj.userData.portalParticles.rotation.x += 0.02;
+        }
+      },
+      
+      float: (obj, time, i) => {
+        obj.position.y += Math.sin(time + i) * 0.05;
+        obj.rotation.y += 0.02;
+        obj.scale.setScalar(params.scale * (0.9 + Math.sin(time * 2 + i) * 0.1));
+        
+        if (obj.userData.type === 'dreamscape' && obj.userData.portalParticles) {
+          obj.userData.portalParticles.rotation.y += 0.02;
+          obj.userData.portalParticles.material.opacity = 0.7 + Math.sin(time + i) * 0.2;
+        }
+      },
+      
+      spin: (obj, time, i) => {
+        obj.rotation.y += 0.05 + i * 0.01;
+        obj.rotation.x += 0.03;
+        obj.rotation.z += 0.02;
+        obj.scale.setScalar(params.scale);
+        
+        if (obj.userData.type === 'dreamscape' && obj.userData.portalParticles) {
+          obj.userData.portalParticles.rotation.y += 0.06;
+          obj.userData.portalParticles.rotation.z += 0.03;
+        }
+      },
+      
+      breath: (obj, time, i) => {
+        const breath = Math.sin(time * 1.5 + i) * 0.5 + 0.5;
+        obj.scale.setScalar(params.scale * (0.7 + breath * 0.3));
+        obj.rotation.y += 0.01;
+        obj.position.y += Math.sin(time * 0.8 + i) * 0.02;
+        
+        if (obj.userData.type === 'dreamscape' && obj.userData.portalParticles) {
+          obj.userData.portalParticles.rotation.y += 0.02;
+          obj.userData.portalParticles.material.opacity = 0.5 + breath * 0.3;
+        }
+      },
+      
+      dance: (obj, time, i) => {
+        obj.position.x += Math.sin(time * 2 + i) * 0.1;
+        obj.position.z += Math.cos(time * 2 + i) * 0.1;
+        obj.rotation.y += 0.04;
+        obj.rotation.z = Math.sin(time * 3 + i) * 0.2;
+        obj.scale.setScalar(params.scale * (0.8 + Math.sin(time * 4 + i) * 0.2));
+        
+        if (obj.userData.type === 'dreamscape' && obj.userData.portalParticles) {
+          obj.userData.portalParticles.rotation.y += 0.05;
+          obj.userData.portalParticles.rotation.x += 0.03;
+        }
+      },
+      
+      chaos: (obj, time, i) => {
+        obj.position.x += Math.sin(time * 3 + i) * 0.15;
+        obj.position.y += Math.cos(time * 2.5 + i) * 0.1;
+        obj.position.z += Math.sin(time * 1.8 + i) * 0.12;
+        obj.rotation.y += 0.08 + Math.sin(time + i) * 0.02;
+        obj.rotation.x += 0.06 + Math.cos(time * 1.5 + i) * 0.03;
+        obj.rotation.z += 0.04 + Math.sin(time * 2.2 + i) * 0.02;
+        obj.scale.setScalar(params.scale * (0.6 + Math.sin(time * 5 + i) * 0.4));
+        
+        if (obj.userData.type === 'dreamscape' && obj.userData.portalParticles) {
+          obj.userData.portalParticles.rotation.y += 0.1;
+          obj.userData.portalParticles.rotation.x += 0.08;
+          obj.userData.portalParticles.rotation.z += 0.06;
+        }
+      },
+      
+      magnetic: (obj, time, i) => {
+        const center = new THREE.Vector3(0, 0, 0);
+        const distance = obj.position.distanceTo(center);
+        const attraction = Math.max(0, 10 - distance) * 0.01;
+        
+        obj.position.lerp(center, attraction * 0.1);
+        obj.rotation.y += 0.03;
+        obj.scale.setScalar(params.scale * (0.9 + attraction * 0.2));
+        
+        if (obj.userData.type === 'dreamscape' && obj.userData.portalParticles) {
+          obj.userData.portalParticles.rotation.y += 0.03;
+          obj.userData.portalParticles.material.opacity = 0.6 + attraction * 0.3;
+        }
+      },
+      
+      quantum: (obj, time, i) => {
+        const quantum = Math.sin(time * 10 + i) * 0.5 + 0.5;
+        const teleport = Math.sin(time * 0.5 + i) > 0.8;
+        
+        if (teleport) {
+          obj.position.x = (Math.random() - 0.5) * 10;
+          obj.position.y = (Math.random() - 0.5) * 10;
+          obj.position.z = (Math.random() - 0.5) * 10;
+        }
+        
+        obj.rotation.y += 0.05;
+        obj.rotation.x += Math.sin(time * 2 + i) * 0.1;
+        obj.scale.setScalar(params.scale * (0.5 + quantum * 0.5));
+        
+        if (obj.userData.type === 'dreamscape' && obj.userData.portalParticles) {
+          obj.userData.portalParticles.rotation.y += 0.08;
+          obj.userData.portalParticles.material.opacity = 0.3 + quantum * 0.5;
+        }
+      }
+    };
+
+    // Initialize gallery
+    async function initializeGallery() {
+      // Clear existing objects
+      galleryObjects.forEach(obj => {
+        scene.remove(obj);
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) obj.material.dispose();
+      });
+      galleryObjects = [];
+
+      // Create a mix of images and splats
+      const assets = [
+        { type: 'image', url: 'https://sparkjs.dev/assets/images/butterfly.png', name: 'Butterfly' },
+        { type: 'image', url: 'https://sparkjs.dev/assets/images/heart.png', name: 'Heart' },
+        { type: 'image', url: 'https://sparkjs.dev/assets/images/star.png', name: 'Star' },
+        { type: 'splat', url: 'https://sparkjs.dev/assets/splats/butterfly.spz', name: 'Butterfly Splat' },
+        { type: 'splat', url: 'https://sparkjs.dev/assets/splats/cat.spz', name: 'Cat Splat' },
+        { type: 'splat', url: 'https://sparkjs.dev/assets/splats/penguin.spz', name: 'Penguin Splat' },
+        { type: 'splat', url: 'https://sparkjs.dev/assets/splats/robot-head.spz', name: 'Robot Head' },
+        { type: 'splat', url: 'https://sparkjs.dev/assets/splats/dessert.spz', name: 'Dessert' },
+        { type: 'dreamscape', url: '/examples/dreamscape-portal/', name: 'Dreamscape Portal' }
+      ];
+
+      for (let i = 0; i < assets.length; i++) {
+        const asset = assets[i];
+        const position = new THREE.Vector3(0, 0, 0);
+        
+        let obj;
+        if (asset.type === 'image') {
+          obj = createImagePlane(asset.url, position, params.scale);
+        } else if (asset.type === 'dreamscape') {
+          obj = createDreamscapePortal(position, params.scale);
+        } else {
+          obj = await createSplatObject(asset.url, position, params.scale);
+        }
+        
+        if (obj) {
+          scene.add(obj);
+          galleryObjects.push(obj);
+        }
+      }
+
+      console.log(`Gallery initialized with ${galleryObjects.length} objects`);
+    }
+
+    // Update gallery layout
+    function updateGalleryLayout() {
+      if (layouts[params.galleryMode]) {
+        layouts[params.galleryMode](galleryObjects, params.spacing, time);
+      }
+    }
+
+    // Background themes
+    const backgroundThemes = {
+      default: () => {
+        document.body.style.background = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)';
+      },
+      sunset: () => {
+        document.body.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ffa726 50%, #ff7043 100%)';
+      },
+      ocean: () => {
+        document.body.style.background = 'linear-gradient(135deg, #0277bd 0%, #039be5 50%, #4fc3f7 100%)';
+      },
+      forest: () => {
+        document.body.style.background = 'linear-gradient(135deg, #2e7d32 0%, #388e3c 50%, #4caf50 100%)';
+      },
+      cosmic: () => {
+        document.body.style.background = 'linear-gradient(135deg, #1a237e 0%, #3f51b5 50%, #9c27b0 100%)';
+      },
+      neon: () => {
+        document.body.style.background = 'linear-gradient(135deg, #00bcd4 0%, #e91e63 50%, #9c27b0 100%)';
+      }
+    };
+
+    // Apply background theme
+    function applyBackgroundTheme() {
+      if (backgroundThemes[params.backgroundTheme]) {
+        backgroundThemes[params.backgroundTheme]();
+      }
+    }
+
+    // Apply animations
+    function applyAnimations() {
+      galleryObjects.forEach((obj, i) => {
+        if (animations[params.animationStyle]) {
+          animations[params.animationStyle](obj, time, i);
+        }
+      });
+    }
+
+    // UI Controls
+    function updateUI() {
+      document.getElementById('rotationValue').textContent = params.rotationSpeed.toFixed(2);
+      document.getElementById('scaleValue').textContent = params.scale.toFixed(1);
+      document.getElementById('spacingValue').textContent = params.spacing.toFixed(1);
+    }
+
+    // Setup event listeners
+    function setupEventListeners() {
+      // Gallery Mode
+      document.getElementById('galleryMode').addEventListener('change', (e) => {
+        params.galleryMode = e.target.value;
+        console.log('Gallery mode changed to:', params.galleryMode);
+      });
+
+      // Rotation Speed
+      document.getElementById('rotation').addEventListener('input', (e) => {
+        params.rotationSpeed = parseFloat(e.target.value);
+        updateUI();
+      });
+
+      // Scale
+      document.getElementById('scale').addEventListener('input', (e) => {
+        params.scale = parseFloat(e.target.value);
+        updateUI();
+      });
+
+      // Spacing
+      document.getElementById('spacing').addEventListener('input', (e) => {
+        params.spacing = parseFloat(e.target.value);
+        updateUI();
+      });
+
+      // Animation Style
+      document.getElementById('animationStyle').addEventListener('change', (e) => {
+        params.animationStyle = e.target.value;
+        console.log('Animation style changed to:', params.animationStyle);
+      });
+
+      // Background Theme
+      document.getElementById('backgroundTheme').addEventListener('change', (e) => {
+        params.backgroundTheme = e.target.value;
+        applyBackgroundTheme();
+        console.log('Background theme changed to:', params.backgroundTheme);
+      });
+
+      // Randomize Button
+      document.getElementById('randomizeBtn').addEventListener('click', () => {
+        params.galleryMode = Object.keys(layouts)[Math.floor(Math.random() * Object.keys(layouts).length)];
+        params.animationStyle = Object.keys(animations)[Math.floor(Math.random() * Object.keys(animations).length)];
+        params.backgroundTheme = Object.keys(backgroundThemes)[Math.floor(Math.random() * Object.keys(backgroundThemes).length)];
+        params.rotationSpeed = Math.random() * 2;
+        params.scale = 0.5 + Math.random() * 1.5;
+        params.spacing = 1 + Math.random() * 3;
+        
+        // Update UI
+        document.getElementById('galleryMode').value = params.galleryMode;
+        document.getElementById('animationStyle').value = params.animationStyle;
+        document.getElementById('backgroundTheme').value = params.backgroundTheme;
+        document.getElementById('rotation').value = params.rotationSpeed;
+        document.getElementById('scale').value = params.scale;
+        document.getElementById('spacing').value = params.spacing;
+        updateUI();
+        applyBackgroundTheme();
+        
+        // Show feedback
+        const btn = document.getElementById('randomizeBtn');
+        const originalText = btn.textContent;
+        btn.textContent = '🎲 Randomizing...';
+        btn.style.background = 'linear-gradient(135deg, #4fc3f7, #29b6f6)';
+        
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.style.background = 'linear-gradient(135deg, #ff6b9d, #ff8ab3)';
+        }, 1000);
+        
+        console.log('Gallery randomized!');
+      });
+
+      // Reset Button
+      document.getElementById('resetBtn').addEventListener('click', () => {
+        controls.rotation.x = 0;
+        controls.rotation.y = 0;
+        controls.distance = 15;
+        console.log('View reset!');
+      });
+    }
+
+    // Animation loop
+    function animate() {
+      controls.update();
+      
+      time += params.rotationSpeed * 0.01;
+      
+      updateGalleryLayout();
+      applyAnimations();
+      
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Initialize
+    updateUI();
+    setupEventListeners();
+    initializeGallery().then(() => {
+      animate();
+    });
+  </script>
+</body>
+</html> 
