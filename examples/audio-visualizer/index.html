@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spark • Audio Visualizer</title>
+  <style>
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+      font-family: 'Arial', sans-serif;
+      overflow: hidden;
+    }
+    
+    #controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 20px;
+      border-radius: 10px;
+      color: white;
+      backdrop-filter: blur(10px);
+    }
+    
+    #controls h3 {
+      margin: 0 0 15px 0;
+      color: #4fc3f7;
+    }
+    
+    #controls button {
+      background: #4fc3f7;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 5px;
+      font-size: 14px;
+      transition: background 0.3s;
+    }
+    
+    #controls button:hover {
+      background: #29b6f6;
+    }
+    
+    #controls button:disabled {
+      background: #666;
+      cursor: not-allowed;
+    }
+    
+    #status {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #ccc;
+    }
+    
+    #frequency-display {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 15px;
+      border-radius: 10px;
+      color: white;
+      backdrop-filter: blur(10px);
+      font-family: monospace;
+      font-size: 12px;
+    }
+    
+    canvas {
+      touch-action: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="controls">
+    <h3>🎵 Audio Visualizer</h3>
+    <button id="startBtn">Start Audio</button>
+    <button id="stopBtn" disabled>Stop Audio</button>
+    <button id="permissionBtn" style="background: #ff9800; margin-left: 10px;">🔊 Request Microphone</button>
+    <div id="status">Click "Start Audio" to begin</div>
+    <div id="https-notice" style="margin-top: 10px; font-size: 11px; color: #ff9800; display: none;">
+      ⚠️ Microphone access requires HTTPS or Azure deployment. Demo mode will be used on HTTP sites.
+    </div>
+    <div id="permission-help" style="margin-top: 10px; font-size: 11px; color: #4fc3f7; display: none;">
+      💡 If microphone access fails, try clicking "Request Microphone" first, then "Start Audio"
+    </div>
+  </div>
+  
+  <div id="frequency-display">
+    <div>Frequency Bands:</div>
+    <div id="freqData">No audio data</div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/examples/js/vendor/three/build/three.module.js",
+        "@sparkjsdev/spark": "/dist/spark.module.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    import { SplatMesh, SparkControls } from "@sparkjsdev/spark";
+
+    // Audio context and analyzer
+    let audioContext, analyser, dataArray;
+    let audioSource = null;
+    let isPlaying = false;
+    
+    // Frequency bands configuration
+    const FREQ_BANDS = 64;
+    const BASS_BANDS = 8;
+    const MID_BANDS = 24;
+    const TREBLE_BANDS = 32;
+    
+    // Visualizer parameters
+    const params = {
+      particleCount: 5000,
+      bassIntensity: 2.0,
+      midIntensity: 1.5,
+      trebleIntensity: 1.0,
+      rotationSpeed: 0.5,
+      colorMode: 'frequency', // 'frequency', 'rainbow', 'monochrome'
+      waveHeight: 3.0,
+      waveSpeed: 0.02
+    };
+
+    // Three.js setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 0);
+    document.body.appendChild(renderer.domElement);
+
+    // Camera setup
+    camera.position.set(0, 0, 8);
+    
+    // Controls
+    const controls = new SparkControls({ canvas: renderer.domElement });
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
+    // Create main visualizer splat mesh
+    const visualizer = new SplatMesh({
+      constructSplats: (splats) => {
+        const center = new THREE.Vector3();
+        const scales = new THREE.Vector3(0.02, 0.02, 0.02);
+        const quaternion = new THREE.Quaternion();
+        const color = new THREE.Color();
+        
+        for (let i = 0; i < params.particleCount; i++) {
+          // Create a circular wave pattern
+          const angle = (i / params.particleCount) * Math.PI * 2;
+          const radius = 2 + Math.sin(angle * 8) * 0.5;
+          
+          center.set(
+            Math.cos(angle) * radius,
+            Math.sin(angle) * 2,
+            Math.sin(angle * 3) * 0.5
+          );
+          
+          // Color based on position
+          const hue = (i / params.particleCount) * 360;
+          color.setHSL(hue / 360, 0.8, 0.6);
+          
+          splats.pushSplat(center, scales, quaternion, 0.8, color);
+        }
+      }
+    });
+    
+    scene.add(visualizer);
+
+    // Create bass wave splat mesh
+    const bassWave = new SplatMesh({
+      constructSplats: (splats) => {
+        const center = new THREE.Vector3();
+        const scales = new THREE.Vector3(0.03, 0.03, 0.03);
+        const quaternion = new THREE.Quaternion();
+        const color = new THREE.Color(0.2, 0.8, 1.0); // Cyan for bass
+        
+        for (let i = 0; i < 1000; i++) {
+          const angle = (i / 1000) * Math.PI * 2;
+          const radius = 1.5;
+          
+          center.set(
+            Math.cos(angle) * radius,
+            Math.sin(angle) * radius * 0.3,
+            0
+          );
+          
+          splats.pushSplat(center, scales, quaternion, 0.6, color);
+        }
+      }
+    });
+    
+    scene.add(bassWave);
+
+    // Create mid-range wave splat mesh
+    const midWave = new SplatMesh({
+      constructSplats: (splats) => {
+        const center = new THREE.Vector3();
+        const scales = new THREE.Vector3(0.02, 0.02, 0.02);
+        const quaternion = new THREE.Quaternion();
+        const color = new THREE.Color(1.0, 0.6, 0.2); // Orange for mid
+        
+        for (let i = 0; i < 800; i++) {
+          const angle = (i / 800) * Math.PI * 2;
+          const radius = 2.5;
+          
+          center.set(
+            Math.cos(angle) * radius,
+            Math.sin(angle) * radius * 0.2,
+            0
+          );
+          
+          splats.pushSplat(center, scales, quaternion, 0.5, color);
+        }
+      }
+    });
+    
+    scene.add(midWave);
+
+    // Create treble wave splat mesh
+    const trebleWave = new SplatMesh({
+      constructSplats: (splats) => {
+        const center = new THREE.Vector3();
+        const scales = new THREE.Vector3(0.015, 0.015, 0.015);
+        const quaternion = new THREE.Quaternion();
+        const color = new THREE.Color(1.0, 0.2, 0.8); // Pink for treble
+        
+        for (let i = 0; i < 600; i++) {
+          const angle = (i / 600) * Math.PI * 2;
+          const radius = 3.5;
+          
+          center.set(
+            Math.cos(angle) * radius,
+            Math.sin(angle) * radius * 0.15,
+            0
+          );
+          
+          splats.pushSplat(center, scales, quaternion, 0.4, color);
+        }
+      }
+    });
+    
+    scene.add(trebleWave);
+
+    // Comprehensive browser audio support detection
+    function detectAudioSupport() {
+      const support = {
+        // Modern MediaDevices API
+        mediaDevices: !!navigator.mediaDevices,
+        getUserMedia: !!navigator.mediaDevices?.getUserMedia,
+        
+        // Legacy getUserMedia methods
+        legacyGetUserMedia: !!navigator.getUserMedia,
+        webkitGetUserMedia: !!navigator.webkitGetUserMedia,
+        mozGetUserMedia: !!navigator.mozGetUserMedia,
+        msGetUserMedia: !!navigator.msGetUserMedia,
+        
+        // AudioContext support
+        audioContext: !!(window.AudioContext || window.webkitAudioContext),
+        
+        // Browser info
+        userAgent: navigator.userAgent,
+        isSecureContext: window.isSecureContext,
+        
+        // Check if we're in an iframe (can block permissions)
+        isInIframe: window !== window.top,
+        
+        // Check if we're on mobile
+        isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      };
+      
+      // Determine best available method
+      if (support.getUserMedia) {
+        support.bestMethod = 'mediaDevices.getUserMedia';
+      } else if (support.legacyGetUserMedia) {
+        support.bestMethod = 'navigator.getUserMedia';
+      } else if (support.webkitGetUserMedia) {
+        support.bestMethod = 'navigator.webkitGetUserMedia';
+      } else if (support.mozGetUserMedia) {
+        support.bestMethod = 'navigator.mozGetUserMedia';
+      } else if (support.msGetUserMedia) {
+        support.bestMethod = 'navigator.msGetUserMedia';
+      } else {
+        support.bestMethod = 'none';
+      }
+      
+      console.log('Audio support detection:', support);
+      return support;
+    }
+
+    // Browser-specific guidance
+    function getBrowserGuidance() {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isChrome = userAgent.includes('chrome');
+      const isFirefox = userAgent.includes('firefox');
+      const isSafari = userAgent.includes('safari') && !userAgent.includes('chrome');
+      const isEdge = userAgent.includes('edge');
+      const isIE = userAgent.includes('msie') || userAgent.includes('trident');
+      
+      let guidance = '';
+      
+      if (isChrome) {
+        guidance = 'Chrome: Click the microphone icon in the address bar and select "Allow"';
+      } else if (isFirefox) {
+        guidance = 'Firefox: Click "Allow" when prompted, or check browser settings';
+      } else if (isSafari) {
+        guidance = 'Safari: Go to Safari > Preferences > Websites > Microphone and allow access';
+      } else if (isEdge) {
+        guidance = 'Edge: Click "Allow" when prompted, or check site permissions';
+      } else if (isIE) {
+        guidance = 'Internet Explorer: Audio input not supported. Please use a modern browser.';
+      } else {
+        guidance = 'Check your browser settings to allow microphone access';
+      }
+      
+      return guidance;
+    }
+
+    // Enhanced MediaDevices polyfill for older browsers
+    function createMediaDevicesPolyfill() {
+      console.log('Creating MediaDevices polyfill...');
+      
+      // Check for any available getUserMedia method
+      const getUserMedia = navigator.getUserMedia || 
+                          navigator.webkitGetUserMedia || 
+                          navigator.mozGetUserMedia || 
+                          navigator.msGetUserMedia;
+      
+      if (!getUserMedia) {
+        console.error('No getUserMedia method found');
+        return null;
+      }
+      
+      console.log('Found getUserMedia method, creating polyfill');
+      
+      // Create a MediaDevices polyfill
+      const mediaDevices = {
+        getUserMedia: function(constraints) {
+          return new Promise((resolve, reject) => {
+            getUserMedia.call(navigator, constraints, resolve, reject);
+          });
+        },
+        enumerateDevices: function() {
+          return Promise.resolve([]);
+        }
+      };
+      
+      return mediaDevices;
+    }
+
+    // Force permission request function
+    async function requestMicrophonePermission() {
+      console.log('Attempting to request microphone permission...');
+      
+      // First, detect what's available
+      const audioSupport = detectAudioSupport();
+      
+      if (audioSupport.bestMethod === 'none') {
+        throw new Error(`No microphone access method available. Browser: ${audioSupport.userAgent}`);
+      }
+      
+      console.log(`Using audio method: ${audioSupport.bestMethod}`);
+      
+      try {
+        let stream = null;
+        
+        // Try the best available method
+        switch (audioSupport.bestMethod) {
+          case 'mediaDevices.getUserMedia':
+            console.log('Trying navigator.mediaDevices.getUserMedia...');
+            stream = await navigator.mediaDevices.getUserMedia({ 
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+              } 
+            });
+            break;
+            
+          case 'navigator.getUserMedia':
+            console.log('Trying navigator.getUserMedia...');
+            stream = await new Promise((resolve, reject) => {
+              navigator.getUserMedia({ audio: true }, resolve, reject);
+            });
+            break;
+            
+          case 'navigator.webkitGetUserMedia':
+            console.log('Trying navigator.webkitGetUserMedia...');
+            stream = await new Promise((resolve, reject) => {
+              navigator.webkitGetUserMedia({ audio: true }, resolve, reject);
+            });
+            break;
+            
+          case 'navigator.mozGetUserMedia':
+            console.log('Trying navigator.mozGetUserMedia...');
+            stream = await new Promise((resolve, reject) => {
+              navigator.mozGetUserMedia({ audio: true }, resolve, reject);
+            });
+            break;
+            
+          case 'navigator.msGetUserMedia':
+            console.log('Trying navigator.msGetUserMedia...');
+            stream = await new Promise((resolve, reject) => {
+              navigator.msGetUserMedia({ audio: true }, resolve, reject);
+            });
+            break;
+            
+          default:
+            throw new Error('No supported audio method found');
+        }
+        
+        if (stream) {
+          console.log('Microphone permission granted!');
+          return stream;
+        } else {
+          throw new Error('Stream creation failed');
+        }
+      } catch (error) {
+        console.error('Permission request failed:', error);
+        
+        // Provide specific guidance based on the error
+        if (error.name === 'NotAllowedError') {
+          throw new Error('Microphone permission denied. Please allow microphone access in your browser settings.');
+        } else if (error.name === 'NotFoundError') {
+          throw new Error('No microphone found. Please connect a microphone and try again.');
+        } else if (error.name === 'NotSupportedError') {
+          throw new Error('Audio API not supported in this browser. Try using Chrome, Firefox, or Edge.');
+        } else if (error.name === 'SecurityError') {
+          throw new Error('Security error - microphone access blocked. Try accessing via HTTPS or localhost.');
+        } else {
+          throw new Error(`Permission failed: ${error.message}`);
+        }
+      }
+    }
+
+    // Browser compatibility check
+    function checkBrowserCompatibility() {
+      const compatibility = {
+        mediaDevices: !!navigator.mediaDevices,
+        getUserMedia: !!navigator.mediaDevices?.getUserMedia,
+        audioContext: !!(window.AudioContext || window.webkitAudioContext),
+        webGL: !!window.WebGLRenderingContext,
+        secureContext: window.isSecureContext,
+        userAgent: navigator.userAgent
+      };
+      
+      console.log('Browser compatibility check:', compatibility);
+      
+      // More lenient check - some browsers have MediaDevices but not detected properly
+      let hasMediaSupport = compatibility.mediaDevices;
+      if (!hasMediaSupport) {
+        // Try alternative detection methods
+        hasMediaSupport = !!(navigator.getUserMedia || navigator.webkitGetUserMedia || 
+                           navigator.mozGetUserMedia || navigator.msGetUserMedia);
+        console.log('Alternative media support detection:', hasMediaSupport);
+      }
+      
+      // Check for common issues
+      const issues = [];
+      if (!hasMediaSupport) {
+        issues.push('MediaDevices API not supported');
+      }
+      if (!compatibility.audioContext) {
+        issues.push('AudioContext not supported');
+      }
+      
+      // Don't treat secure context as a blocking issue for Azure
+      const isAzure = window.location.hostname.includes('azure') || 
+                     window.location.hostname.includes('4.227.183.218') ||
+                     window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
+      if (!compatibility.secureContext && !isAzure) {
+        issues.push('Not in secure context (HTTPS required for microphone)');
+      }
+      
+      if (issues.length > 0) {
+        console.warn('Browser compatibility issues detected:', issues);
+        const status = document.getElementById('status');
+        status.innerHTML = `<span style="color: #ff9800;">⚠️ Browser issues: ${issues.join(', ')}</span>`;
+      }
+      
+      return {
+        ...compatibility,
+        hasMediaSupport: hasMediaSupport
+      };
+    }
+
+    // Azure-specific audio troubleshooting
+    function troubleshootAzureAudio() {
+      console.log('Running Azure audio troubleshooting...');
+      
+      const troubleshooting = {
+        // Check if we're on Azure
+        isAzure: window.location.hostname.includes('azure') || 
+                window.location.hostname.includes('4.227.183.218') ||
+                window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/),
+        
+        // Check browser features
+        hasMediaDevices: !!navigator.mediaDevices,
+        hasGetUserMedia: !!navigator.mediaDevices?.getUserMedia,
+        hasAudioContext: !!(window.AudioContext || window.webkitAudioContext),
+        
+        // Check permissions
+        permissionsSupported: !!navigator.permissions,
+        
+        // Check if we're in a secure context
+        isSecureContext: window.isSecureContext,
+        
+        // Check user agent for mobile/desktop
+        isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
+        
+        // Check if we're in an iframe (which can cause issues)
+        isInIframe: window !== window.top
+      };
+      
+      console.log('Azure troubleshooting results:', troubleshooting);
+      
+      // Provide specific recommendations based on findings
+      const recommendations = [];
+      
+      if (troubleshooting.isInIframe) {
+        recommendations.push('Running in iframe - this may cause audio permission issues');
+      }
+      
+      if (troubleshooting.isMobile) {
+        recommendations.push('Mobile browser detected - audio permissions may be different');
+      }
+      
+      if (!troubleshooting.isSecureContext) {
+        recommendations.push('Not in secure context - microphone access may be blocked');
+      }
+      
+      if (!troubleshooting.hasMediaDevices) {
+        recommendations.push('MediaDevices API not available - browser may be outdated');
+      }
+      
+      if (recommendations.length > 0) {
+        console.warn('Azure audio recommendations:', recommendations);
+        const status = document.getElementById('status');
+        status.innerHTML += `<br><small style="color: #ff9800;">💡 Azure tips: ${recommendations.join(', ')}</small>`;
+      }
+      
+      return troubleshooting;
+    }
+
+    // Audio setup functions
+    async function setupAudio() {
+      try {
+        console.log('Setting up audio for Azure environment...');
+        
+        // Run Azure-specific troubleshooting
+        const azureTroubleshooting = troubleshootAzureAudio();
+        
+        console.log('Environment details:', {
+          protocol: window.location.protocol,
+          hostname: window.location.hostname,
+          userAgent: navigator.userAgent,
+          mediaDevices: !!navigator.mediaDevices,
+          getUserMedia: !!navigator.mediaDevices?.getUserMedia,
+          isSecureContext: window.isSecureContext,
+          legacyGetUserMedia: !!(navigator.getUserMedia || navigator.webkitGetUserMedia || 
+                               navigator.mozGetUserMedia || navigator.msGetUserMedia)
+        });
+
+        // Create audio context (must be after user interaction on some browsers)
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        console.log('AudioContext created, state:', audioContext.state);
+        
+        // Resume audio context if suspended (required on some browsers)
+        if (audioContext.state === 'suspended') {
+          console.log('AudioContext suspended, attempting to resume...');
+          await audioContext.resume();
+          console.log('AudioContext resumed, new state:', audioContext.state);
+        }
+
+        // Create analyser
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.8;
+        
+        const bufferLength = analyser.frequencyBinCount;
+        dataArray = new Uint8Array(bufferLength);
+        console.log('Analyser created with buffer length:', bufferLength);
+        
+        // Check if we're on a supported environment (more lenient for Azure)
+        const isSecure = window.location.protocol === 'https:' || 
+                        window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1' ||
+                        window.location.hostname.includes('azure') ||
+                        window.location.hostname.includes('4.227.183.218') ||
+                        window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
+        
+        // For Azure, be more lenient with security checks
+        const isAzure = window.location.hostname.includes('azure') || 
+                       window.location.hostname.includes('4.227.183.218') ||
+                       window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
+        
+        if (!isSecure && !isAzure) {
+          throw new Error('Microphone access requires HTTPS or Azure deployment. Using demo mode instead.');
+        }
+        
+        // Request microphone access using the enhanced permission request
+        console.log('Requesting microphone access with enhanced method...');
+        const stream = await requestMicrophonePermission();
+        console.log('Microphone access granted, stream active:', stream.active);
+        
+        // Create media stream source
+        audioSource = audioContext.createMediaStreamSource(stream);
+        audioSource.connect(analyser);
+        console.log('Audio source connected to analyser');
+        
+        // Test if we can get frequency data
+        analyser.getByteFrequencyData(dataArray);
+        console.log('Initial frequency data sample:', dataArray.slice(0, 5));
+        
+        return true;
+      } catch (error) {
+        console.error('Error setting up audio:', error);
+        console.error('Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
+        
+        // Provide specific error messages for common issues
+        let errorMessage = 'Audio setup failed: ';
+        if (error.name === 'NotAllowedError') {
+          errorMessage += 'Microphone permission denied. Please allow microphone access and try again.';
+        } else if (error.name === 'NotFoundError') {
+          errorMessage += 'No microphone found. Please connect a microphone and try again.';
+        } else if (error.name === 'NotSupportedError') {
+          errorMessage += 'Audio API not supported in this browser.';
+        } else if (error.name === 'SecurityError') {
+          errorMessage += 'Security error - microphone access blocked.';
+        } else {
+          errorMessage += error.message;
+        }
+        
+        // Update UI with specific error
+        const status = document.getElementById('status');
+        status.innerHTML = `<span style="color: #ff6b6b;">❌ ${errorMessage}</span>`;
+        
+        // Fallback to demo mode after a delay
+        setTimeout(() => {
+          console.log('Falling back to demo mode due to audio setup failure');
+          setupDemoMode();
+        }, 3000);
+        
+        return false;
+      }
+    }
+
+    // Demo mode for non-HTTPS environments
+    function setupDemoMode() {
+      console.log('Setting up demo mode for non-HTTPS environment');
+      console.log('Current environment:', {
+        protocol: window.location.protocol,
+        hostname: window.location.hostname,
+        href: window.location.href
+      });
+      
+      // Create fake frequency data that simulates music
+      // Use the same size as the analyser would create
+      dataArray = new Uint8Array(FREQ_BANDS);
+      console.log(`Created dataArray with ${dataArray.length} elements`);
+      
+      // Initialize with some base values
+      for (let i = 0; i < dataArray.length; i++) {
+        dataArray[i] = Math.floor(Math.random() * 128);
+      }
+      
+      // Simulate audio data with a repeating pattern
+      let demoTime = 0;
+      const demoInterval = setInterval(() => {
+        demoTime += 0.1;
+        
+        // Create wave-like patterns
+        for (let i = 0; i < dataArray.length; i++) {
+          const wave1 = Math.sin(demoTime + i * 0.2) * 0.5 + 0.5;
+          const wave2 = Math.sin(demoTime * 2 + i * 0.1) * 0.3 + 0.3;
+          const wave3 = Math.sin(demoTime * 0.5 + i * 0.05) * 0.2 + 0.2;
+          
+          dataArray[i] = Math.floor((wave1 + wave2 + wave3) * 255);
+        }
+        
+        // Log progress occasionally
+        if (Math.floor(demoTime * 10) % 20 === 0) {
+          console.log('Demo mode running, data sample:', dataArray.slice(0, 5));
+        }
+        
+        if (!isPlaying) {
+          clearInterval(demoInterval);
+          console.log('Demo mode stopped');
+        }
+      }, 50);
+      
+      isPlaying = true;
+      updateUI();
+      console.log('Demo mode setup complete');
+      
+      // Add a visual indicator that demo mode is active
+      const status = document.getElementById('status');
+      status.innerHTML += '<br><small style="color: #4fc3f7;">🔄 Demo mode active - Simulated audio patterns</small>';
+    }
+
+    function startAudio() {
+      console.log('Start audio button clicked');
+      
+      // Check if we're in a supported environment
+      const isSecure = window.location.protocol === 'https:' || 
+                      window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1' ||
+                      window.location.hostname.includes('azure') ||
+                      window.location.hostname.includes('4.227.183.218') ||
+                      window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
+      
+      // Check if we're on Azure
+      const isAzure = window.location.hostname.includes('azure') || 
+                     window.location.hostname.includes('4.227.183.218') ||
+                     window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
+      
+      console.log('Environment check:', {
+        protocol: window.location.protocol,
+        hostname: window.location.hostname,
+        isSecure: isSecure,
+        isAzure: isAzure
+      });
+      
+      if (!isSecure && !isAzure) {
+        console.log('Non-secure environment detected, using demo mode');
+        if (!isPlaying) {
+          setupDemoMode();
+        }
+      } else {
+        console.log('Secure or Azure environment detected, attempting real audio');
+        
+        // Update UI to show we're trying to access microphone
+        const status = document.getElementById('status');
+        status.innerHTML = '<span style="color: #4fc3f7;">🎤 Requesting microphone access...</span>';
+        
+        // Try to set up real audio
+        if (!audioContext) {
+          console.log('No audio context exists, creating new one...');
+          setupAudio().then(success => {
+            if (success) {
+              console.log('Audio setup successful');
+              isPlaying = true;
+              updateUI();
+            } else {
+              console.log('Audio setup failed, falling back to demo mode');
+              // setupDemoMode() is called in setupAudio() on failure
+            }
+          }).catch(error => {
+            console.error('Unexpected error in audio setup:', error);
+            setupDemoMode();
+          });
+        } else if (audioContext.state === 'suspended') {
+          console.log('Audio context suspended, resuming...');
+          audioContext.resume().then(() => {
+            console.log('Audio context resumed successfully');
+            isPlaying = true;
+            updateUI();
+          }).catch(error => {
+            console.error('Failed to resume audio context:', error);
+            setupDemoMode();
+          });
+        } else {
+          console.log('Audio context already running');
+          isPlaying = true;
+          updateUI();
+        }
+      }
+    }
+
+    function stopAudio() {
+      if (audioSource) {
+        audioSource.disconnect();
+        audioSource = null;
+      }
+      if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+      }
+      isPlaying = false;
+      updateUI();
+    }
+
+    function updateUI() {
+      const startBtn = document.getElementById('startBtn');
+      const stopBtn = document.getElementById('stopBtn');
+      const status = document.getElementById('status');
+      
+      startBtn.disabled = isPlaying;
+      stopBtn.disabled = !isPlaying;
+      
+      if (isPlaying) {
+        const isSecure = window.location.protocol === 'https:' || 
+                        window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1' ||
+                        window.location.hostname.includes('azure') ||
+                        window.location.hostname.includes('4.227.183.218') ||
+                        window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
+        if (isSecure && audioSource) {
+          status.textContent = '🎵 Audio active - Visualizing...';
+        } else {
+          status.textContent = '🎵 Demo mode - Simulated audio...';
+        }
+      } else {
+        status.textContent = 'Click "Start Audio" to begin';
+      }
+    }
+
+    // Event listeners
+    document.getElementById('startBtn').addEventListener('click', startAudio);
+    document.getElementById('stopBtn').addEventListener('click', stopAudio);
+    document.getElementById('permissionBtn').addEventListener('click', async () => {
+      console.log('Manual permission request button clicked');
+      const status = document.getElementById('status');
+      const permissionHelp = document.getElementById('permission-help');
+      
+      // First, run comprehensive detection
+      const audioSupport = detectAudioSupport();
+      console.log('Audio support analysis:', audioSupport);
+      
+      status.innerHTML = '<span style="color: #ff9800;">🎤 Analyzing browser audio support...</span>';
+      
+      if (audioSupport.bestMethod === 'none') {
+        const guidance = getBrowserGuidance();
+        status.innerHTML = `<span style="color: #ff6b6b;">❌ No microphone access available</span>`;
+        permissionHelp.innerHTML = `
+          <div style="color: #ff6b6b; margin-bottom: 10px;">
+            <strong>Browser Analysis:</strong><br>
+            • MediaDevices API: ${audioSupport.mediaDevices ? '✅' : '❌'}<br>
+            • Legacy getUserMedia: ${audioSupport.legacyGetUserMedia ? '✅' : '❌'}<br>
+            • WebKit getUserMedia: ${audioSupport.webkitGetUserMedia ? '✅' : '❌'}<br>
+            • AudioContext: ${audioSupport.audioContext ? '✅' : '❌'}<br>
+            • Secure Context: ${audioSupport.isSecureContext ? '✅' : '❌'}<br>
+            • In iframe: ${audioSupport.isInIframe ? '⚠️' : '✅'}<br>
+            • Mobile: ${audioSupport.isMobile ? '📱' : '🖥️'}
+          </div>
+          <div style="color: #ff9800;">
+            <strong>Recommendations:</strong><br>
+            • ${guidance}<br>
+            • Try using Chrome, Firefox, or Edge<br>
+            • Ensure you're not in an iframe<br>
+            • Check if microphone is connected and working
+          </div>
+        `;
+        permissionHelp.style.display = 'block';
+        return;
+      }
+      
+      status.innerHTML = '<span style="color: #ff9800;">🎤 Requesting microphone permission...</span>';
+      
+      try {
+        await requestMicrophonePermission();
+        status.innerHTML = '<span style="color: #4fc3f7;">✅ Microphone permission granted! Now click "Start Audio"</span>';
+        permissionHelp.style.display = 'none';
+      } catch (error) {
+        console.error('Manual permission request failed:', error);
+        const guidance = getBrowserGuidance();
+        status.innerHTML = `<span style="color: #ff6b6b;">❌ Permission failed: ${error.message}</span>`;
+        permissionHelp.innerHTML = `
+          <div style="color: #ff9800;">
+            <strong>How to fix:</strong><br>
+            • ${guidance}<br>
+            • Try refreshing the page and requesting again<br>
+            • Check browser console (F12) for more details
+          </div>
+        `;
+        permissionHelp.style.display = 'block';
+      }
+    });
+
+    // Show HTTPS notice if needed and auto-start demo mode
+    const isSecure = window.location.protocol === 'https:' || 
+                    window.location.hostname === 'localhost' || 
+                    window.location.hostname === '127.0.0.1' ||
+                    window.location.hostname.includes('azure') ||
+                    window.location.hostname.includes('4.227.183.218') ||
+                    window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
+    
+    console.log('Environment check:', {
+      protocol: window.location.protocol,
+      hostname: window.location.hostname,
+      isSecure: isSecure,
+      isSecureContext: window.isSecureContext,
+      userAgent: navigator.userAgent
+    });
+    
+    // Run browser compatibility check
+    const compatibility = checkBrowserCompatibility();
+    
+    // Check if we're on Azure
+    const isAzure = window.location.hostname.includes('azure') || 
+                   window.location.hostname.includes('4.227.183.218') ||
+                   window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
+    
+    if (!isSecure && !isAzure) {
+      document.getElementById('https-notice').style.display = 'block';
+      console.log('Non-HTTPS environment detected, setting up demo mode...');
+      // Auto-start demo mode for non-HTTPS environments
+      setTimeout(() => {
+        console.log('Starting demo mode...');
+        setupDemoMode();
+      }, 1000); // Start after 1 second
+    } else {
+      console.log('HTTPS or Azure environment detected, real audio will be available');
+      
+      // For Azure, be more lenient with browser compatibility
+      if (isAzure) {
+        console.log('Azure environment detected - attempting real audio despite compatibility warnings');
+        // Show permission help for Azure users
+        document.getElementById('permission-help').style.display = 'block';
+        
+        // Check if we have any audio support at all
+        const audioSupport = detectAudioSupport();
+        if (audioSupport.bestMethod === 'none') {
+          console.warn('No audio support detected on Azure, starting demo mode');
+          setTimeout(() => {
+            setupDemoMode();
+          }, 3000); // Give user time to see the analysis
+        }
+        // Don't auto-start demo mode on Azure, let user try real audio first
+      } else if (!compatibility.hasMediaSupport) {
+        console.warn('Browser does not support audio input, will use demo mode');
+        setTimeout(() => {
+          setupDemoMode();
+        }, 2000);
+      }
+    }
+
+    // Animation function
+    function animate(time) {
+      controls.update(camera);
+      
+      const deltaTime = time * 0.001;
+      
+      // Rotate main visualizer
+      visualizer.rotation.y += params.rotationSpeed * 0.01;
+      
+      // Update splats based on audio data
+      if (isPlaying && dataArray) {
+        // Get frequency data (either from real audio or demo mode)
+        if (analyser) {
+          analyser.getByteFrequencyData(dataArray);
+        }
+        // In demo mode, dataArray is already being updated by the interval
+        
+        // Update frequency display
+        updateFrequencyDisplay();
+        
+        // Animate splats based on frequency data
+        animateSplats();
+      }
+      
+      // Wave animations
+      bassWave.rotation.z += 0.01;
+      midWave.rotation.z -= 0.008;
+      trebleWave.rotation.z += 0.012;
+      
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    function updateFrequencyDisplay() {
+      const freqData = document.getElementById('freqData');
+      
+      if (!dataArray || dataArray.length === 0) {
+        freqData.innerHTML = 'No audio data';
+        return;
+      }
+      
+      // Debug: log the array length and some values
+      if (Math.random() < 0.01) { // Log occasionally
+        console.log('dataArray length:', dataArray.length);
+        console.log('dataArray sample:', dataArray.slice(0, 10));
+      }
+      
+      const bass = dataArray.slice(0, BASS_BANDS).reduce((a, b) => a + b, 0) / BASS_BANDS;
+      const mid = dataArray.slice(BASS_BANDS, BASS_BANDS + MID_BANDS).reduce((a, b) => a + b, 0) / MID_BANDS;
+      const treble = dataArray.slice(BASS_BANDS + MID_BANDS).reduce((a, b) => a + b, 0) / TREBLE_BANDS;
+      
+      freqData.innerHTML = `
+        Bass: ${bass.toFixed(0)}<br>
+        Mid: ${mid.toFixed(0)}<br>
+        Treble: ${treble.toFixed(0)}
+      `;
+    }
+
+    function animateSplats() {
+      if (!visualizer.packedSplats) return;
+      
+      const time = performance.now() * 0.001;
+      
+      visualizer.packedSplats.forEachSplat((index, center, scales, quaternion, opacity, color) => {
+        // Get frequency data for this splat
+        const freqIndex = Math.floor((index / params.particleCount) * FREQ_BANDS);
+        const frequency = dataArray[freqIndex] || 0;
+        const normalizedFreq = frequency / 255;
+        
+        // Calculate wave height based on frequency
+        const waveHeight = normalizedFreq * params.waveHeight;
+        const angle = (index / params.particleCount) * Math.PI * 2;
+        const radius = 2 + Math.sin(angle * 8) * 0.5;
+        
+        // Update position with wave effect
+        center.set(
+          Math.cos(angle) * radius,
+          Math.sin(angle) * 2 + waveHeight,
+          Math.sin(angle * 3) * 0.5
+        );
+        
+        // Update color based on frequency
+        if (params.colorMode === 'frequency') {
+          const hue = normalizedFreq * 360;
+          color.setHSL(hue / 360, 0.8, 0.6);
+        } else if (params.colorMode === 'rainbow') {
+          const hue = (index / params.particleCount + time * 0.1) * 360;
+          color.setHSL(hue / 360, 0.8, 0.6);
+        }
+        
+        // Update opacity based on frequency
+        const newOpacity = 0.3 + normalizedFreq * 0.7;
+        
+        // Update scale based on frequency
+        const scale = 0.02 + normalizedFreq * 0.03;
+        scales.setScalar(scale);
+        
+        visualizer.packedSplats.setSplat(index, center, scales, quaternion, newOpacity, color);
+      });
+      
+      visualizer.packedSplats.needsUpdate = true;
+      visualizer.needsUpdate = true;
+    }
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Start animation loop
+    animate(0);
+  </script>
+</body>
+
+</html> 
